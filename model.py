@@ -26,27 +26,29 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
     premise_word_input = Input(shape=(p, word_embedding_size))
     hypothesis_word_input = Input(shape=(h, word_embedding_size))
 
-    # 2. Character input
-    premise_char_input = Input(shape=(embedding_size,))
-    hypothesis_char_input = Input(shape=(embedding_size,))
-
-    # Share weights of character-level embedding for premise and hypothesis
-    character_embedding_layer = Embedding(embedding_size, output_dim=d)
-    premise_embedding = character_embedding_layer(premise_char_input)
-    hypothesis_embedding = character_embedding_layer(hypothesis_char_input)
-
-    # Share weights of 1D convolution for premise and hypothesis
-    character_conv_layer = Conv1D(filters=d, kernel_size=15)
-    premise_embedding = character_conv_layer(premise_embedding)
-    hypothesis_embedding = character_conv_layer(hypothesis_embedding)
-
-    # Apply max-pooling after convolution
-    premise_embedding = MaxPool1D(premise_embedding)
-    hypothesis_embedding = MaxPool1D(hypothesis_embedding)
-
-    # Concatenate all features
-    premise_embedding = concatenate([premise_word_input, premise_embedding])
-    hypothesis_embedding = concatenate([hypothesis_word_input, hypothesis_embedding])
+    # # 2. Character input
+    # premise_char_input = Input(shape=(embedding_size,))
+    # hypothesis_char_input = Input(shape=(embedding_size,))
+    #
+    # # Share weights of character-level embedding for premise and hypothesis
+    # character_embedding_layer = Embedding(embedding_size, output_dim=d)
+    # premise_embedding = character_embedding_layer(premise_char_input)
+    # hypothesis_embedding = character_embedding_layer(hypothesis_char_input)
+    #
+    # # Share weights of 1D convolution for premise and hypothesis
+    # character_conv_layer = Conv1D(filters=d, kernel_size=15)
+    # premise_embedding = character_conv_layer(premise_embedding)
+    # hypothesis_embedding = character_conv_layer(hypothesis_embedding)
+    #
+    # # Apply max-pooling after convolution
+    # premise_embedding = MaxPool1D(premise_embedding)
+    # hypothesis_embedding = MaxPool1D(hypothesis_embedding)
+    #
+    # # Concatenate all features
+    # premise_embedding = concatenate([premise_word_input, premise_embedding])
+    # hypothesis_embedding = concatenate([hypothesis_word_input, hypothesis_embedding])
+    premise_embedding = premise_word_input
+    hypothesis_embedding = hypothesis_word_input
 
     '''Encoding layer'''
     # --Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]--
@@ -54,12 +56,12 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
     hypothesis_encoding = Encoding(d=d)(hypothesis_embedding)
 
     '''Interaction layer'''
-    Interaction()([premise_encoding, hypothesis_encoding])
+    out = Interaction()([premise_encoding, hypothesis_encoding])
 
-    '''Feature Extraction layer'''
-    feature_extractor = ResNet50(include_top=False, weights=None)
-    features = Flatten()(feature_extractor)
-    out = Dense(3, activation='softmax')(features)
+    # '''Feature Extraction layer'''
+    # feature_extractor = ResNet50(include_top=False, weights=None)
+    # features = Flatten()(feature_extractor)
+    # out = Dense(3, activation='softmax')(features)
 
-    return Model(inputs=[premise_word_input, premise_char_input, hypothesis_word_input, hypothesis_char_input],
+    return Model(inputs=[premise_word_input, hypothesis_word_input],
                  outputs=out)
