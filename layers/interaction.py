@@ -21,11 +21,11 @@ class Interaction(Layer):
         # In keras this operation is equivalent to reshaping premise (batch, p, 1, d), hypothesis (batch, 1, h, d)
         # And then compute premise * hypothesis
 
-        # Reshape:
+        # Get shapes:
         batch, p, d = K.int_shape(premise_encoding)
         batch, h, d = K.int_shape(hypothesis_encoding)
 
-        # Convert to backend format
+        # Convert to backend format (-1 means that reshape() needs to infer the size of that axis)
         if batch is None:   batch = -1
         if p is None:       p = -1
         if h is None:       h = -1
