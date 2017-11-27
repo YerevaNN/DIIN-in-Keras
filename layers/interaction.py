@@ -6,8 +6,7 @@ class Interaction(Layer):
 
     def call(self, inputs, **kwargs):
         assert len(inputs) == 2
-        premise_encoding = inputs[0]
-        hypothesis_encoding = inputs[1]
+        premise_encoding, hypothesis_encoding = inputs
 
         # Perform element-wise multiplication for each row of premise and hypothesis
         # For every i, j premise_row[i] * hypothesis_row[j]
@@ -20,18 +19,8 @@ class Interaction(Layer):
 
         # In keras this operation is equivalent to reshaping premise (batch, p, 1, d), hypothesis (batch, 1, h, d)
         # And then compute premise * hypothesis
-
-        # Get shapes:
-        batch, p, d = K.int_shape(premise_encoding)
-        batch, h, d = K.int_shape(hypothesis_encoding)
-
-        # Convert to backend format (-1 means that reshape() needs to infer the size of that axis)
-        if batch is None:   batch = -1
-        if p is None:       p = -1
-        if h is None:       h = -1
-
-        premise_encoding = K.reshape(premise_encoding, shape=(batch, p, 1, d))
-        hypothesis_encoding = K.reshape(hypothesis_encoding, shape=(batch, 1, h, d))
+        premise_encoding = K.expand_dims(premise_encoding, axis=2)          # (batch, p, 1, d)
+        hypothesis_encoding = K.expand_dims(hypothesis_encoding, axis=1)    # (batch, 1, h, d)
 
         # Compute betta(premise, hypothesis)
         res = premise_encoding * hypothesis_encoding

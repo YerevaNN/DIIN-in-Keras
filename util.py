@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 
+from keras import backend as K
 from os import path
 
 from gensim.scripts.glove2word2vec import glove2word2vec
@@ -48,3 +49,17 @@ def get_word2vec_file_path():
     print('Done')
 
     return word2vec_path
+
+
+def broadcast_last_axis(x):
+    """
+    Accepts tensor of shape (batch, a, b, ..., k)
+     :returns broadcasted tensor of shape (batch, a, b, ..., k, a)
+    """
+    z = K.identity(x) * 0
+    z = K.expand_dims(z)
+    s = z[(Ellipsis,) + (0,) * (K.ndim(z) - 1)]
+    s = K.expand_dims(s, axis=0)
+    res = K.dot(z, s)
+    res = K.permute_dimensions(res, pattern=(0, 2, 1, 3))
+    return res + x

@@ -20,9 +20,11 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
     """
 
     '''Embedding layer'''
+    print('p:', p, 'h:', h, 'd:', d)
     # Word embeddings + char-level embeddings + features
 
     # 1. Word embedding input
+    word_embedding_size = d
     premise_word_input = Input(shape=(p, word_embedding_size))
     hypothesis_word_input = Input(shape=(h, word_embedding_size))
 

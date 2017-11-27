@@ -2,6 +2,8 @@ from keras import backend as K
 from keras.activations import softmax
 from keras.engine.topology import Layer
 
+from util import broadcast_last_axis
+
 
 class Encoding(Layer):
     def __init__(self, d, **kwargs):
@@ -16,21 +18,27 @@ class Encoding(Layer):
         super(Encoding, self).__init__(**kwargs)
 
     def build(self, input_shape):
+        """
+        The paper uses weights (w1, w2, w3) of shape (2*d, d) and then transposes them before using in fuse gate
+        We define them already transposed having shape (d, 2*d)
+        :param input_shape:
+        :return:
+        """
         self.w_itr_att = self.add_weight(name='w_itr_att',
-                                         shape=(3 * self.d),
+                                         shape=(3 * self.d,),
                                          initializer='uniform',
                                          trainable=True)
 
         self.w1 = self.add_weight(name='W1',
-                                  shape=(2 * self.d, self.d),
+                                  shape=(2 * self.d, self.d,),
                                   initializer='uniform',
                                   trainable=True)
         self.w2 = self.add_weight(name='W2',
-                                  shape=(2 * self.d, self.d),
+                                  shape=(2 * self.d, self.d,),
                                   initializer='uniform',
                                   trainable=True)
         self.w3 = self.add_weight(name='W3',
-                                  shape=(2 * self.d, self.d),
+                                  shape=(2 * self.d, self.d,),
                                   initializer='uniform',
                                   trainable=True)
 
@@ -48,19 +56,23 @@ class Encoding(Layer):
                                   trainable=True)
         super(Encoding, self).build(input_shape)
 
-    def alpha(self, a, b):
-        return K.dot(K.transpose(self.w_itr_att),
-                     K.concatenate([a, b, a * b]))
-
     def call(self, P, **kwargs):
-        # The paper takes inputs to be P as an example and then computes the same thing for H,
+        """
+        :param P: inputs
+        :return: encoding of inputs P
+        """
+        ''' Paper notations in the code '''
+        # P = P_hw
+        # itr_attn = P_itrAtt
+        # encoding = P_enc
+        # The paper takes inputs to be P(_hw) as an example and then computes the same thing for H,
         # therefore we'll name our inputs P too.
 
         # Input of encoding is P with shape (batch, p, d). It would be (batch, h, d) for hypothesis
         # Construct alphaP of shape (batch, p, 3*d, p)
         # A = dot(w_itr_att, alphaP)
 
-        # alphaPP consists of 3*d rows along 2nd axis
+        # alphaP consists of 3*d rows along 2nd axis
         # 1. up   -> first  d items represent P[i]
         # 2. mid  -> second d items represent P[j]
         # 3. down -> final items represent alpha(P[i], P[j]) which is element-wise product of P[i] and P[j] = P[i]*P[j]
@@ -99,37 +111,33 @@ class Encoding(Layer):
         # As we can notice up is the same mid, but with changed axis, so to obtain up from mid we can do:
         # up = swap_axes(mid, axis1=0, axis2=2)
 
-        def broadcast_to(x, shape):
-            return K.zeros(shape) + x
+        # P.shape            = (batch, p, d)
+        # P_transposed.shape = (batch, d, p)
+        # mid = broadcast_to(P_transposed, shape=(p, d, p))
+        # up  = permute_dimensions(up, shape=(2, 1, 0))
+        mid = broadcast_last_axis(K.permute_dimensions(P, pattern=(0, 2, 1)))   # mid.shape = (batch, p, d, p)
+        up = K.permute_dimensions(mid, pattern=(0, 3, 2, 1))                    # up.shape  = (batch, p, d, p)
 
-        batch, p, d = K.int_shape(P)
-        P_transposed = K.transpose(P)
-        mid = broadcast_to(P_transposed, shape=(p, d, p))
-        up = broadcast_to(P_transposed, shape=(p, d, p))
-        up = K.permute_dimensions(up, pattern=(2, 1, 0))
-        down = up * mid
-
-        alphaP = K.concatenate([up, mid, down], axis=2)
+        # A = dot( W_itr_attn, alphaP )
+        alphaP = K.concatenate([up, mid, up * mid], axis=2)
         A = K.dot(self.w_itr_att, alphaP)
 
-        # Self-attention
-        itr_attn = softmax(A, axis=2)  # Apply column-wise soft-max
-        itr_attn = K.dot(itr_attn, P)
+        ''' Self-attention '''
+        # P_itr_attn[i] = sum of for j = 1...p:
+        #                           s = sum(for k = 1...p:  e^A[k][j]
+        #                           ( e^A[i][j] / s ) * P[j]  --> P[j] is the j-th row, while the first part is a number
+        # So P_itr_attn is the weighted sum of P
+        # SA is column-wise soft-max applied on A
+        # P_itr_attn[i] is the sum of all rows of P scaled by i-th row of SA
+        SA = softmax(A, axis=2)  # Apply column-wise soft-max
+        # Expanding the form to vector/matrix form we can obtain that P_itr_attn is just the dot( SA, P )
+        itr_attn = K.batch_dot(SA, P)  # itr_attn: (batch, p, d)
 
-        # Fuse gate
-        z = K.tanh(K.dot(K.transpose(self.w1),
-                         K.concatenate([P, itr_attn]))
-                   + self.b1)
-        r = K.sigmoid(K.dot(K.transpose(self.w2),
-                            K.concatenate([P, itr_attn]))
-                      + self.b2)
-        f = K.sigmoid(K.dot(K.transpose(self.w3),
-                            K.concatenate([P, itr_attn]))
-                      + self.b3)
+        ''' Fuse gate '''
+        P_concat = K.concatenate([P, itr_attn], axis=2)     # P_concat is of shape (batch, p, 2d)
+        z = K.tanh(K.dot(P_concat, self.w1) + self.b1)      # (batch, p, d)
+        r = K.sigmoid(K.dot(P_concat, self.w2) + self.b2)   # (batch, p, d)
+        f = K.sigmoid(K.dot(P_concat, self.w3) + self.b3)   # (batch, p, d)
 
         encoding = r * P + f * z
         return encoding
-
-    def compute_output_shape(self, input_shape):
-        # TODO
-        pass
