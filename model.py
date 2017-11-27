@@ -1,12 +1,12 @@
 from keras.engine import Model
 from keras.layers import Input, Embedding, Conv1D, MaxPool1D, concatenate, Flatten, Dense
-from keras.applications.resnet50 import ResNet50
 
+from densenet.densenet import DenseNet
 from layers.encoding import Encoding
 from layers.interaction import Interaction
 
 
-def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_size=300, FSDR=0.3, TSDR=0.5):
+def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_size=300, FSDR=0.3, TSDR=0.5, GR=20):
 
     """
     :param word_embedding_size: size of the word-embedding vector (default GloVe is 300)
@@ -60,11 +60,11 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
     '''Interaction layer'''
     interaction = Interaction()([premise_encoding, hypothesis_encoding])
 
-    # '''Feature Extraction layer'''
-    # feature_extractor = ResNet50(include_top=False, weights=None, input_tensor=interaction)
-    # features = Flatten()(feature_extractor)
-    # out = Dense(3, activation='softmax')(features)
+    '''Feature Extraction layer'''
+    feature_extractor = DenseNet(include_top=False, weights=None, input_tensor=interaction, growth_rate=GR)(interaction)
+    features = Flatten()(feature_extractor)
+    out = Dense(3, activation='softmax')(features)
 
     return Model(inputs=[premise_word_input, hypothesis_word_input],
-                 outputs=interaction,
+                 outputs=out,
                  name='DIIN')
