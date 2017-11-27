@@ -18,12 +18,6 @@ class Encoding(Layer):
         super(Encoding, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        """
-        The paper uses weights (w1, w2, w3) of shape (2*d, d) and then transposes them before using in fuse gate
-        We define them already transposed having shape (d, 2*d)
-        :param input_shape:
-        :return:
-        """
         self.w_itr_att = self.add_weight(name='w_itr_att',
                                          shape=(3 * self.d,),
                                          initializer='uniform',

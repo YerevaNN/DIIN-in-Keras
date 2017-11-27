@@ -58,12 +58,13 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
     hypothesis_encoding = Encoding(d=d)(hypothesis_embedding)
 
     '''Interaction layer'''
-    out = Interaction()([premise_encoding, hypothesis_encoding])
+    interaction = Interaction()([premise_encoding, hypothesis_encoding])
 
     # '''Feature Extraction layer'''
-    # feature_extractor = ResNet50(include_top=False, weights=None)
+    # feature_extractor = ResNet50(include_top=False, weights=None, input_tensor=interaction)
     # features = Flatten()(feature_extractor)
     # out = Dense(3, activation='softmax')(features)
 
     return Model(inputs=[premise_word_input, hypothesis_word_input],
-                 outputs=out)
+                 outputs=interaction,
+                 name='DIIN')
