@@ -9,11 +9,15 @@ from layers.interaction import Interaction
 def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_size=300, FSDR=0.3, TSDR=0.5, GR=20, n=8):
 
     """
-    :param word_embedding_size: size of the word-embedding vector (default GloVe is 300)
-    :param embedding_size: input size of the character-embedding layer
     :param p: sequence length of premise
     :param h: sequence length of hypothesis
     :param d: the dimension of both premise and hypothesis representations
+    :param word_embedding_size: size of the word-embedding vector (default GloVe is 300)
+    :param embedding_size: input size of the character-embedding layer
+    :param FSDR: first scale down ratio in densenet
+    :param TSDR: transition scale down ratio in densenet
+    :param GR: growing rate in densenet
+    :param n: number of layers in one dense-block
 
     :ref https://openreview.net/forum?id=r1dHXnH6-&noteId=r1dHXnH6-
     :returns DIIN model
@@ -24,8 +28,8 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
 
     # 1. Word embedding input
     word_embedding_size = d
-    premise_word_input = Input(shape=(p, word_embedding_size))
-    hypothesis_word_input = Input(shape=(h, word_embedding_size))
+    premise_word_input = Input(shape=(p, word_embedding_size), name='PremiseWordInput')
+    hypothesis_word_input = Input(shape=(h, word_embedding_size), name='HypothesisWordInput')
 
     # # 2. Character input
     # premise_char_input = Input(shape=(embedding_size,))
@@ -53,11 +57,11 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
 
     '''Encoding layer'''
     # --Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]--
-    premise_encoding = Encoding(d=d)(premise_embedding)
-    hypothesis_encoding = Encoding(d=d)(hypothesis_embedding)
+    premise_encoding = Encoding(d=d, name='PremiseEncoding')(premise_embedding)
+    hypothesis_encoding = Encoding(d=d, name='HypothesisEncoding')(hypothesis_embedding)
 
     '''Interaction layer'''
-    interaction = Interaction()([premise_encoding, hypothesis_encoding])
+    interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
 
     '''Feature Extraction layer'''
     feature_layers = int(d * FSDR)
@@ -71,7 +75,7 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
                                             growth_rate=GR)
 
     '''Output layer'''
-    out = Dense(3, activation='softmax')(feature_extractor)
+    out = Dense(3, activation='softmax', name='Output')(feature_extractor)
 
     return Model(inputs=[premise_word_input, hypothesis_word_input],
                  outputs=out,
