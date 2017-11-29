@@ -22,9 +22,9 @@ class Interaction(Layer):
         premise_encoding = K.expand_dims(premise_encoding, axis=2)          # (batch, p, 1, d)
         hypothesis_encoding = K.expand_dims(hypothesis_encoding, axis=1)    # (batch, 1, h, d)
 
-        # Compute betta(premise, hypothesis)
-        res = premise_encoding * hypothesis_encoding
-        return res
+        # Compute interaction tensor I = betta(premise, hypothesis)
+        I = premise_encoding * hypothesis_encoding
+        return I
 
     def compute_output_shape(self, input_shape):
         premise_shape = input_shape[0]

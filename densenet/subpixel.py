@@ -5,10 +5,8 @@ from keras.engine import Layer
 from keras.utils.generic_utils import get_custom_objects
 from keras.utils.conv_utils import normalize_data_format
 
-if K.backend() == 'theano':
-    import keras.backend.theano_backend as K_BACKEND
-else:
-    import keras.backend.tensorflow_backend as K_BACKEND
+if K.backend() == 'theano':   from densenet.theano_backend import depth_to_space
+else:                         from densenet.tensorflow_backend import depth_to_space
 
 
 class SubPixelUpscaling(Layer):
@@ -60,16 +58,16 @@ class SubPixelUpscaling(Layer):
         pass
 
     def call(self, x, mask=None):
-        y = K_BACKEND.depth_to_space(x, self.scale_factor, self.data_format)
+        y = depth_to_space(x, self.scale_factor, self.data_format)
         return y
 
     def compute_output_shape(self, input_shape):
         if self.data_format == 'channels_first':
             b, k, r, c = input_shape
-            return (b, k // (self.scale_factor ** 2), r * self.scale_factor, c * self.scale_factor)
+            return b, k // (self.scale_factor ** 2), r * self.scale_factor, c * self.scale_factor
         else:
             b, r, c, k = input_shape
-            return (b, r * self.scale_factor, c * self.scale_factor, k // (self.scale_factor ** 2))
+            return b, r * self.scale_factor, c * self.scale_factor, k // (self.scale_factor ** 2)
 
     def get_config(self):
         config = {'scale_factor': self.scale_factor,
