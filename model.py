@@ -69,6 +69,8 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
                                             nb_layers_per_block=n,
                                             compression=TSDR,
                                             growth_rate=GR)
+
+    '''Output layer'''
     out = Dense(3, activation='softmax')(feature_extractor)
 
     return Model(inputs=[premise_word_input, hypothesis_word_input],

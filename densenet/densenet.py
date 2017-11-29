@@ -260,17 +260,7 @@ def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_bl
     if nb_filter <= 0:
         nb_filter = 2 * growth_rate
 
-    # Initial convolution
-    if subsample_initial_block:
-        initial_kernel = (7, 7)
-        initial_strides = (2, 2)
-    else:
-        initial_kernel = (3, 3)
-        initial_strides = (1, 1)
-
-    x = Conv2D(nb_filter, initial_kernel, kernel_initializer='he_normal', padding='same',
-               strides=initial_strides, use_bias=False, kernel_regularizer=l2(weight_decay))(img_input)
-
+    x = img_input
     if subsample_initial_block:
         if apply_batch_norm:
             x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(x)
