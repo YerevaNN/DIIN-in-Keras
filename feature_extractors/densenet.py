@@ -1,6 +1,7 @@
 """DenseNet models for Keras.
     :ref  [Densely Connected Convolutional Networks](https://arxiv.org/pdf/1608.06993.pdf)
-          [The One Hundred Layers Tiramisu: Fully Convolutional DenseNets for Semantic Segmentation](https://arxiv.org/pdf/1611.09326.pdf)
+          [The One Hundred Layers Tiramisu: Fully Convolutional DenseNets for Semantic Segmentation]
+            (https://arxiv.org/pdf/1611.09326.pdf)
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -16,13 +17,6 @@ from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import GlobalAveragePooling2D
 from keras.layers.pooling import MaxPooling2D
 from keras.regularizers import l2
-
-DENSENET_121_WEIGHTS_PATH = r'https://github.com/titu1994/DenseNet/releases/download/v3.0/DenseNet-BC-121-32.h5'
-DENSENET_161_WEIGHTS_PATH = r'https://github.com/titu1994/DenseNet/releases/download/v3.0/DenseNet-BC-161-48.h5'
-DENSENET_169_WEIGHTS_PATH = r'https://github.com/titu1994/DenseNet/releases/download/v3.0/DenseNet-BC-169-32.h5'
-DENSENET_121_WEIGHTS_PATH_NO_TOP = r'https://github.com/titu1994/DenseNet/releases/download/v3.0/DenseNet-BC-121-32-no-top.h5'
-DENSENET_161_WEIGHTS_PATH_NO_TOP = r'https://github.com/titu1994/DenseNet/releases/download/v3.0/DenseNet-BC-161-48-no-top.h5'
-DENSENET_169_WEIGHTS_PATH_NO_TOP = r'https://github.com/titu1994/DenseNet/releases/download/v3.0/DenseNet-BC-169-32-no-top.h5'
 
 
 def get_densenet_output(input_shape=None, depth=40, nb_dense_block=3, growth_rate=12, nb_filter=-1,

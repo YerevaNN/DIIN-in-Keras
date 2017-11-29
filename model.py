@@ -1,7 +1,7 @@
 from keras.engine import Model
-from keras.layers import Input, Embedding, Conv1D, MaxPool1D, concatenate, Flatten, Dense, Conv2D
+from keras.layers import Input, Dense, Conv2D
 
-from densenet.densenet import get_densenet_output
+from feature_extractors.densenet import get_densenet_output
 from layers.encoding import Encoding
 from layers.interaction import Interaction
 
