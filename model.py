@@ -2,6 +2,7 @@ from keras.engine import Model
 from keras.layers import Input, Dense, Conv2D
 
 from feature_extractors.densenet import get_densenet_output
+from layers.decaying_dropout import DecayingDropout
 from layers.encoding import Encoding
 from layers.interaction import Interaction
 
@@ -28,8 +29,10 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
 
     # 1. Word embedding input
     word_embedding_size = d
-    premise_word_input = Input(shape=(p, word_embedding_size), name='PremiseWordInput')
+    premise_word_input = Input(shape=(p, word_embedding_size),    name='PremiseWordInput')
     hypothesis_word_input = Input(shape=(h, word_embedding_size), name='HypothesisWordInput')
+    premise_embedding = DecayingDropout(initial_keep_rate=1,    decay_interval=10000, decay_rate=0.977)(premise_word_input)
+    hypothesis_embedding = DecayingDropout(initial_keep_rate=1, decay_interval=10000, decay_rate=0.977)(hypothesis_word_input)
 
     # # 2. Character input
     # premise_char_input = Input(shape=(embedding_size,))
@@ -52,8 +55,6 @@ def construct_model(p=None, h=None, d=300, embedding_size=30, word_embedding_siz
     # # Concatenate all features
     # premise_embedding = concatenate([premise_word_input, premise_embedding])
     # hypothesis_embedding = concatenate([hypothesis_word_input, hypothesis_embedding])
-    premise_embedding = premise_word_input
-    hypothesis_embedding = hypothesis_word_input
 
     '''Encoding layer'''
     # --Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]--
