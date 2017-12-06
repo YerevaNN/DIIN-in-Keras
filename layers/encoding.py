@@ -48,6 +48,16 @@ class Encoding(Layer):
                                   shape=(self.d,),
                                   initializer='uniform',
                                   trainable=True)
+
+        # Add parameters for weights to penalize difference between them
+        # Optimizer will penalize weight difference between all occurrences of the same name
+        self.w_itr_att.penalize_difference = 'w_itr_attn'
+        self.w1.penalize_difference = 'w1'
+        self.w2.penalize_difference = 'w2'
+        self.w3.penalize_difference = 'w3'
+        self.b1.penalize_difference = 'b1'
+        self.b2.penalize_difference = 'b2'
+        self.b3.penalize_difference = 'b3'
         super(Encoding, self).build(input_shape)
 
     def call(self, P, **kwargs):
