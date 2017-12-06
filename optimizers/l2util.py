@@ -46,7 +46,12 @@ class BaseL2Optimizer(Optimizer):
         self.l2_difference_full_ratio = K.variable(l2_difference_full_ratio, name='l2_difference_full_ratio')
 
     def get_updates(self, loss, params):
-        raise NotImplementedError
+        return NotImplementedError
+
+    def get_l2_loss(self, loss, params, iterations):
+        loss = compute_decaying_l2_loss(loss, params, iterations, self.l2_full_step, self.l2_full_ratio)
+        loss = compute_decaying_difference_l2_loss(loss, params, iterations, self.l2_full_step, self.l2_difference_full_ratio)
+        return loss
 
     def get_config(self):
         config = {'l2_full_step':               float(K.get_value(self.l2_full_step)),

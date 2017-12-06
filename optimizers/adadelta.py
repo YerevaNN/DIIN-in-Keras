@@ -1,6 +1,6 @@
 from keras.optimizers import Adadelta
 
-from optimizers.l2util import BaseL2Optimizer, compute_decaying_l2_loss, compute_decaying_difference_l2_loss
+from optimizers.l2util import BaseL2Optimizer
 
 
 class AdadeltaL2(Adadelta, BaseL2Optimizer):
@@ -17,7 +17,5 @@ class AdadeltaL2(Adadelta, BaseL2Optimizer):
                                  **kwargs)
 
     def get_updates(self, loss, params):
-        loss = compute_decaying_l2_loss(loss, params, self.iterations, self.l2_full_step, self.l2_full_ratio)
-        loss = compute_decaying_difference_l2_loss(loss, params, self.iterations, self.l2_full_step, self.l2_difference_full_ratio)
-
-        return super(AdadeltaL2, self).get_updates(loss, params)
+        loss = BaseL2Optimizer.get_l2_loss(self, loss=loss, params=params, iterations=self.iterations)
+        return AdadeltaL2.get_updates(self, loss=loss, params=params)
