@@ -1,6 +1,5 @@
 from keras import backend as K
 from keras.engine import Layer
-from keras.initializers import Constant
 
 
 class DecayingDropout(Layer):
@@ -23,14 +22,8 @@ class DecayingDropout(Layer):
         self.supports_masking = True
 
     def build(self, input_shape):
-        self.current_keep_rate = self.add_weight(shape=(1,),
-                                                 name='keep_rate',
-                                                 initializer=Constant(value=self.initial_keep_rate),
-                                                 trainable=False)
-        self.current_step = self.add_weight(shape=(1,),
-                                            name='step',
-                                            initializer=Constant(value=0),
-                                            trainable=False)
+        self.current_keep_rate = K.variable(self.initial_keep_rate, name='keep_rate')
+        self.current_step = K.variable(1, name='time')
         super(DecayingDropout, self).build(input_shape)
 
     def _get_noise_shape(self, inputs):
@@ -48,7 +41,7 @@ class DecayingDropout(Layer):
         zero = K.zeros(shape=K.int_shape(self.current_step))
 
         def dropped_inputs():
-            return K.dropout(inputs, 1 - self.current_keep_rate[0], noise_shape, seed=self.seed)
+            return K.dropout(inputs, 1 - self.current_keep_rate, noise_shape, seed=self.seed)
 
         new_keep_rate = K.switch(K.all(self.current_step % self.decay_interval == zero),
                                  self.current_keep_rate * self.decay_rate,
