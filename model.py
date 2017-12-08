@@ -1,8 +1,10 @@
 import numpy as np
 
 from keras.engine import Model
-from keras.layers import Input, Dense, Conv2D, Embedding, Conv1D, concatenate, TimeDistributed, GlobalMaxPooling1D
+from keras.layers import Input, Dense, Conv2D, Embedding, Conv1D, TimeDistributed, GlobalMaxPooling1D, \
+    Concatenate
 from keras import backend as K
+from keras.models import Sequential
 
 from feature_extractors.densenet import get_densenet_output
 from layers.decaying_dropout import DecayingDropout
@@ -12,7 +14,7 @@ from layers.interaction import Interaction
 
 def construct_model(p=None,
                     h=None,
-                    word_embedding_matrix=np.array([]),
+                    word_embedding_weights=np.array([]),
                     word_embedding_size=300,
                     char_embedding_size=30,
                     char_pad_size=14,
@@ -25,7 +27,7 @@ def construct_model(p=None,
     """
     :param p: sequence length of premise
     :param h: sequence length of hypothesis
-    :param word_embedding_matrix: matrix of weights for word embeddings (GloVe pre-trained vectors)
+    :param word_embedding_weights: matrix of weights for word embeddings (GloVe pre-trained vectors)
     :param word_embedding_size: size of the word-embedding vector (default GloVe is 300)
     :param char_embedding_size: input size of the character-embedding layer
     :param char_pad_size: length of the padding size for each word
@@ -41,17 +43,18 @@ def construct_model(p=None,
 
     '''Embedding layer'''
     # 1. Word embedding input
-    premise_word_input = Input(shape=(p,),    name='PremiseWordInput')
-    hypothesis_word_input = Input(shape=(h,), name='HypothesisWordInput')
+    premise_word_input = Input(shape=(p,), name='PremiseWordInput', dtype='int64')
+    hypothesis_word_input = Input(shape=(h,), name='HypothesisWordInput', dtype='int64')
     print('Word inputs:', K.int_shape(premise_word_input), K.int_shape(hypothesis_word_input))
-    # premise_embedding = DecayingDropout(decay_interval=10000, decay_rate=0.977)(premise_word_input)
-    # hypothesis_embedding = DecayingDropout(decay_interval=10000, decay_rate=0.977)(hypothesis_word_input)
-    word_embedding = Embedding(input_dim=word_embedding_matrix.shape[0],
+
+    word_embedding = Embedding(input_dim=word_embedding_weights.shape[0],
                                output_dim=word_embedding_size,
-                               weights=[word_embedding_matrix],
+                               weights=[word_embedding_weights],
                                trainable=True)
     premise_word_embedding = word_embedding(premise_word_input)
     hypothesis_word_embedding = word_embedding(hypothesis_word_input)
+    premise_word_embedding = DecayingDropout(decay_interval=10000, decay_rate=0.977)(premise_word_embedding)
+    hypothesis_word_embedding = DecayingDropout(decay_interval=10000, decay_rate=0.977)(hypothesis_word_embedding)
     print('Word embeddings:', K.int_shape(premise_word_embedding), K.int_shape(hypothesis_word_embedding))
 
     # 2. Character input
@@ -60,30 +63,23 @@ def construct_model(p=None,
     print('Char inputs:', K.int_shape(premise_char_input), K.int_shape(hypothesis_char_input))
 
     # Share weights of character-level embedding for premise and hypothesis
-    character_embedding_layer = Embedding(255, output_dim=char_embedding_size)
+    character_embedding_layer = TimeDistributed(Sequential([
+        Embedding(input_dim=255, output_dim=char_embedding_size, input_length=char_pad_size),
+        Conv1D(filters=40, kernel_size=3),
+        GlobalMaxPooling1D()
+    ]))
+    character_embedding_layer.build(input_shape=(None, None, char_pad_size))
     premise_char_embedding = character_embedding_layer(premise_char_input)
     hypothesis_char_embedding = character_embedding_layer(hypothesis_char_input)
     print('Char embedding:', K.int_shape(premise_char_embedding), K.int_shape(hypothesis_char_embedding))
-
-    # Share weights of 1D convolution for premise and hypothesis
-    character_conv_layer = TimeDistributed(Conv1D(filters=40, kernel_size=3))
-    character_conv_layer.build(input_shape=(None, None, char_pad_size, char_embedding_size))
-    premise_char_embedding = character_conv_layer(premise_char_embedding)
-    hypothesis_char_embedding = character_conv_layer(hypothesis_char_embedding)
-    print('Char conv:', K.int_shape(premise_char_embedding), K.int_shape(hypothesis_char_embedding))
-
-    # Apply max-pooling after convolution
-    premise_char_embedding = TimeDistributed(GlobalMaxPooling1D())(premise_char_embedding)
-    hypothesis_char_embedding = TimeDistributed(GlobalMaxPooling1D())(hypothesis_char_embedding)
-    print('Char max pool:', K.int_shape(premise_char_embedding), K.int_shape(hypothesis_char_embedding))
 
     # 3. Syntactical features
     premise_syntactical_input = Input(shape=(p, syntactical_feature_size,))
     hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,))
 
     # Concatenate all features
-    premise_embedding = concatenate([premise_word_embedding, premise_char_embedding, premise_syntactical_input])
-    hypothesis_embedding = concatenate([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
+    premise_embedding = Concatenate()([premise_word_embedding, premise_char_embedding, premise_syntactical_input])
+    hypothesis_embedding = Concatenate()([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
     print('Embedding:', K.int_shape(premise_embedding), K.int_shape(hypothesis_embedding))
     d = K.int_shape(hypothesis_embedding)[-1]
 
@@ -97,7 +93,7 @@ def construct_model(p=None,
 
     '''Feature Extraction layer'''
     feature_layers = int(d * FSDR)
-    feature_extractor_input = Conv2D(feature_layers, kernel_size=1, activation=None)(interaction)
+    feature_extractor_input = Conv2D(filters=feature_layers, kernel_size=1, activation=None)(interaction)
     feature_extractor = get_densenet_output(include_top=False,
                                             weights=None,
                                             input_tensor=feature_extractor_input,
@@ -107,7 +103,8 @@ def construct_model(p=None,
                                             growth_rate=GR)
 
     '''Output layer'''
-    out = Dense(3, activation='softmax', name='Output')(feature_extractor)
+    features = DecayingDropout(decay_interval=10000, decay_rate=0.977)(feature_extractor)
+    out = Dense(units=3, activation='softmax', name='Output')(features)
 
     return Model(inputs=[premise_word_input,    premise_char_input,    premise_syntactical_input,
                          hypothesis_word_input, hypothesis_char_input, hypothesis_syntactical_input],
