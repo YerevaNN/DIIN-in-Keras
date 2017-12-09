@@ -1,8 +1,7 @@
 import numpy as np
 
 from keras.engine import Model
-from keras.layers import Input, Dense, Conv2D, Embedding, Conv1D, TimeDistributed, GlobalMaxPooling1D, \
-    Concatenate
+from keras.layers import Input, Dense, Conv2D, Embedding, Conv1D, TimeDistributed, GlobalMaxPooling1D, Concatenate
 from keras import backend as K
 from keras.models import Sequential
 
@@ -43,14 +42,15 @@ def construct_model(p=None,
 
     '''Embedding layer'''
     # 1. Word embedding input
-    premise_word_input = Input(shape=(p,), name='PremiseWordInput', dtype='int64')
+    premise_word_input = Input(shape=(p,),    name='PremiseWordInput',    dtype='int64')
     hypothesis_word_input = Input(shape=(h,), name='HypothesisWordInput', dtype='int64')
     print('Word inputs:', K.int_shape(premise_word_input), K.int_shape(hypothesis_word_input))
 
     word_embedding = Embedding(input_dim=word_embedding_weights.shape[0],
                                output_dim=word_embedding_size,
                                weights=[word_embedding_weights],
-                               trainable=True)
+                               trainable=True,
+                               name='WordEmbedding')
     premise_word_embedding = word_embedding(premise_word_input)
     hypothesis_word_embedding = word_embedding(hypothesis_word_input)
     premise_word_embedding = DecayingDropout(decay_interval=10000, decay_rate=0.977)(premise_word_embedding)
@@ -64,7 +64,7 @@ def construct_model(p=None,
 
     # Share weights of character-level embedding for premise and hypothesis
     character_embedding_layer = TimeDistributed(Sequential([
-        Embedding(input_dim=255, output_dim=char_embedding_size, input_length=char_pad_size),
+        Embedding(input_dim=128, output_dim=char_embedding_size, input_length=char_pad_size),
         Conv1D(filters=40, kernel_size=3),
         GlobalMaxPooling1D()
     ]))
@@ -78,18 +78,20 @@ def construct_model(p=None,
     hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,))
 
     # Concatenate all features
-    premise_embedding = Concatenate()([premise_word_embedding, premise_char_embedding, premise_syntactical_input])
+    premise_embedding = Concatenate()([premise_word_embedding,       premise_char_embedding,    premise_syntactical_input])
     hypothesis_embedding = Concatenate()([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
     print('Embedding:', K.int_shape(premise_embedding), K.int_shape(hypothesis_embedding))
     d = K.int_shape(hypothesis_embedding)[-1]
 
     '''Encoding layer'''
     # --Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]--
-    premise_encoding = Encoding(d=d, name='PremiseEncoding')(premise_embedding)
+    premise_encoding = Encoding(d=d,    name='PremiseEncoding')(premise_embedding)
     hypothesis_encoding = Encoding(d=d, name='HypothesisEncoding')(hypothesis_embedding)
+    print('Encoding:', K.int_shape(premise_encoding), K.int_shape(hypothesis_encoding))
 
     '''Interaction layer'''
     interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
+    print('Interaction:', K.int_shape(interaction))
 
     '''Feature Extraction layer'''
     feature_layers = int(d * FSDR)

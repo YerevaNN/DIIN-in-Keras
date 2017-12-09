@@ -1,12 +1,15 @@
 from __future__ import print_function
 
 import os
+import numpy as np
 
 from keras import backend as K
 from os import path
 
-from gensim.scripts.glove2word2vec import glove2word2vec
 from keras.utils import get_file
+from tqdm import tqdm
+try:    import cPickle as pickle  # Python 2
+except: import _pickle as pickle  # Python 3
 
 
 def get_snli_file_path():
@@ -43,6 +46,22 @@ def get_word2vec_file_path():
 
     os.remove(filename)
     return glove_file_path
+
+
+def save_train_data(directory, data):
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+    for i, item in tqdm(enumerate(data)):
+        np.save(directory + '/' + str(i) + '.npy', item)
+
+
+def load_train_data(directory):
+    data = []
+    for file in tqdm(sorted(os.listdir(directory))):
+        if not file.endswith('.npy'):
+            continue
+        data.append(np.load(directory + '/' + file))
+    return data
 
 
 def broadcast_last_axis(x):
