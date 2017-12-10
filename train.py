@@ -1,3 +1,6 @@
+import random
+import os
+import shutil
 import numpy as np
 
 from model import construct_model
@@ -9,23 +12,59 @@ from keras.callbacks import TensorBoard
 
 
 def train(model, epochs,
-          train_inputs, train_labels,
-          valid_inputs, valid_labels,
+          train_data,
+          valid_data,
           initial_optimizer, secondary_optimizer,
           optimizer_switch_step=30000,
-          batch_size=70):
+          batch_size=70,
+          tensorboard=TensorBoard(),
+          shuffle=True):
 
-    model.fit(x=train_inputs,
-              y=train_labels,
-              epochs=epochs,
-              validation_data=(valid_inputs, valid_labels),
-              callbacks=[TensorBoard()])
+    model.compile(optimizer=initial_optimizer,
+                  loss='binary_crossentropy',
+                  metrics=['accuracy'])
+
+    best_loss = 1000.
+    no_progress_steps = 0
+    tensorboard.set_model(model)
+
+    # Start training
+    for epoch in range(epochs):
+        if shuffle:
+            random.shuffle(list(zip(train_data)))
+        train_inputs = train_data[:-1]
+        train_labels = train_data[-1]
+
+        for batch in range(0, len(train_data), batch_size):
+            inp = [train_input[batch: batch+batch_size] for train_input in train_inputs]
+            [print(item.shape) for item in inp]
+            [loss, accuracy] = model.train_on_batch([train_input[batch: batch+batch_size] for train_input in train_inputs],
+                                                    train_labels[batch: batch+batch_size])
+            logs = {'acc': accuracy, 'loss': loss}
+            tensorboard.on_batch_end(batch=batch, logs=logs)
+
+            no_progress_steps += 1
+            if loss < best_loss:
+                best_loss = loss
+                no_progress_steps = 0
+
+            if no_progress_steps >= optimizer_switch_step:
+                optimizer_switch_step = 10000000000           # Never update again
+                model.compile(optimizer=secondary_optimizer,  # Compile the model again to use a new optimizer
+                              loss='binary_crossentropy',
+                              metrics=['accuracy'])
+
+        [val_loss, val_acc] = model.evaluate(valid_data[:-1], valid_data[-1])
+        logs = {'val_loss': val_loss, 'val_acc': val_acc}
+        tensorboard.on_epoch_end(epoch=epoch, logs=logs)
+
+    tensorboard.on_train_end('Good Bye!')
 
 
 if __name__ == '__main__':
 
     word_embedding_weights = np.load('data/word-vectors.npy')
-    train_data = load_train_data('data/train')
+    train_data = load_train_data('data/dev')
     valid_data = load_train_data('data/test')
 
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)
@@ -37,12 +76,16 @@ if __name__ == '__main__':
                             char_pad_size=14,
                             syntactical_feature_size=48)
 
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    tensorboard_dir = './logs'
+    # Clean-up if necessary
+    if os.path.exists(tensorboard_dir):
+        shutil.rmtree(tensorboard_dir, ignore_errors=True)
+
+    board = TensorBoard(log_dir=tensorboard_dir)
     train(model=model,
           epochs=50,
-          train_inputs=train_data[:-1],
-          train_labels=train_data[-1],
-          valid_inputs=valid_data[:-1],
-          valid_labels=valid_data[-1],
-          initial_optimizer=adadelta,
-          secondary_optimizer=sgd)
+          train_data=train_data,
+          valid_data=valid_data,
+          initial_optimizer='adam',
+          secondary_optimizer=sgd,
+          tensorboard=board)
