@@ -2,6 +2,7 @@ import random
 import os
 import shutil
 import numpy as np
+from tqdm import tqdm
 
 from model import construct_model
 from optimizers.adadelta import AdadeltaL2
@@ -26,6 +27,7 @@ def train(model, epochs,
                   loss='binary_crossentropy',
                   metrics=['accuracy'])
 
+    step = 0
     best_loss = 1000.
     no_progress_steps = 0
     tensorboard.set_model(model)
@@ -37,14 +39,13 @@ def train(model, epochs,
         train_inputs = train_data[:-1]
         train_labels = train_data[-1]
 
-        for batch in range(0, len(train_data), batch_size):
-            inp = [train_input[batch: batch+batch_size] for train_input in train_inputs]
-            [print(item.shape) for item in inp]
+        for batch in tqdm(range(0, len(train_data[0]), batch_size)):
             [loss, accuracy] = model.train_on_batch([train_input[batch: batch+batch_size] for train_input in train_inputs],
                                                     train_labels[batch: batch+batch_size])
             logs = {'acc': accuracy, 'loss': loss}
-            tensorboard.on_batch_end(batch=batch, logs=logs)
+            tensorboard.on_epoch_end(epoch=step, logs=logs)
 
+            step += 1
             no_progress_steps += 1
             if loss < best_loss:
                 best_loss = loss
@@ -52,6 +53,7 @@ def train(model, epochs,
 
             if no_progress_steps >= optimizer_switch_step:
                 optimizer_switch_step = 10000000000           # Never update again
+                # params = model.save_weights()
                 model.compile(optimizer=secondary_optimizer,  # Compile the model again to use a new optimizer
                               loss='binary_crossentropy',
                               metrics=['accuracy'])
@@ -59,7 +61,7 @@ def train(model, epochs,
         # Log results to tensorboard and save the model
         [val_loss, val_acc] = model.evaluate(valid_data[:-1], valid_data[-1])
         logs = {'val_loss': val_loss, 'val_acc': val_acc}
-        tensorboard.on_epoch_end(epoch=epoch, logs=logs)
+        tensorboard.on_epoch_end(epoch=step, logs=logs)
         model.save(filepath=models_save_dir + 'epoch={}-vloss={}-vacc={}.model'.format(epoch, val_loss, val_acc))
 
     tensorboard.on_train_end('Good Bye!')
@@ -68,7 +70,7 @@ def train(model, epochs,
 if __name__ == '__main__':
 
     word_embedding_weights = np.load('data/word-vectors.npy')
-    train_data = load_train_data('data/train')
+    train_data = load_train_data('data/dev')
     valid_data = load_train_data('data/test')
 
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)

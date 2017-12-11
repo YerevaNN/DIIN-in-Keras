@@ -119,8 +119,9 @@ class Encoding(Layer):
         # P_transposed.shape = (batch, d, p)
         # mid = broadcast_to(P_transposed, shape=(p, d, p))
         # up  = permute_dimensions(up, shape=(2, 1, 0))
-        mid = broadcast_last_axis(K.permute_dimensions(P, pattern=(0, 2, 1)))   # mid.shape = (batch, p, d, p)
-        up = K.permute_dimensions(mid, pattern=(0, 3, 2, 1))                    # up.shape  = (batch, p, d, p)
+        mid = broadcast_last_axis(P)                            # mid.shape = (batch, p, d, p)
+        up = K.permute_dimensions(mid, pattern=(0, 3, 2, 1))    # up.shape  = (batch, p, d, p)
+        print(K.int_shape(mid))
 
         # A = dot( W_itr_attn, alphaP )
         alphaP = K.concatenate([up, mid, up * mid], axis=2)

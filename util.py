@@ -66,13 +66,9 @@ def load_train_data(directory):
 
 def broadcast_last_axis(x):
     """
-    Accepts tensor of shape (batch, a, b, ..., k)
-     :returns broadcasted tensor of shape (batch, a, b, ..., k, a)
+    :param x tensor of shape (batch, a, b)
+     :returns broadcasted tensor of shape (batch, a, b, a)
     """
-    z = K.identity(x) * 0
-    z = K.expand_dims(z)
-    s = z[(Ellipsis,) + (0,) * (K.ndim(z) - 1)]
-    s = K.expand_dims(s, axis=0)
-    res = K.dot(z, s)
-    res = K.permute_dimensions(res, pattern=(0, 2, 1, 3))
-    return res + x
+    y = K.expand_dims(x, 1)
+    y = K.permute_dimensions(y, (0, 1, 3, 2))
+    return (K.expand_dims(x) + y) / 2
