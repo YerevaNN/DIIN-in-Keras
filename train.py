@@ -14,7 +14,9 @@ from keras.callbacks import TensorBoard
 def train(model, epochs,
           train_data,
           valid_data,
-          initial_optimizer, secondary_optimizer,
+          initial_optimizer=AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8),
+          secondary_optimizer=SGDL2(lr=3e-4),
+          models_save_dir='./models/',
           optimizer_switch_step=30000,
           batch_size=70,
           tensorboard=TensorBoard(),
@@ -54,9 +56,11 @@ def train(model, epochs,
                               loss='binary_crossentropy',
                               metrics=['accuracy'])
 
+        # Log results to tensorboard and save the model
         [val_loss, val_acc] = model.evaluate(valid_data[:-1], valid_data[-1])
         logs = {'val_loss': val_loss, 'val_acc': val_acc}
         tensorboard.on_epoch_end(epoch=epoch, logs=logs)
+        model.save(filepath=models_save_dir + 'epoch={}-vloss={}-vacc={}.model'.format(epoch, val_loss, val_acc))
 
     tensorboard.on_train_end('Good Bye!')
 
@@ -64,12 +68,11 @@ def train(model, epochs,
 if __name__ == '__main__':
 
     word_embedding_weights = np.load('data/word-vectors.npy')
-    train_data = load_train_data('data/dev')
+    train_data = load_train_data('data/train')
     valid_data = load_train_data('data/test')
 
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)
     sgd = SGDL2(lr=3e-4)
-
     model = construct_model(p=32,
                             h=32,
                             word_embedding_weights=word_embedding_weights,
