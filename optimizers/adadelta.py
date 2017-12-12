@@ -18,4 +18,4 @@ class AdadeltaL2(Adadelta, BaseL2Optimizer):
 
     def get_updates(self, loss, params):
         loss = BaseL2Optimizer.get_l2_loss(self, loss=loss, params=params, iterations=self.iterations)
-        return AdadeltaL2.get_updates(self, loss=loss, params=params)
+        return Adadelta.get_updates(self, loss=loss, params=params)
