@@ -15,8 +15,8 @@ from util import load_train_data
 def train(model, epochs,
           train_data,
           valid_data,
-          initial_optimizer=AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8),
-          secondary_optimizer=SGDL2(lr=3e-4),
+          initial_optimizer,
+          secondary_optimizer,
           models_save_dir='./models/',
           optimizer_switch_step=30000,
           batch_size=70,
@@ -81,8 +81,13 @@ if __name__ == '__main__':
                             char_pad_size=14,
                             syntactical_feature_size=48)
 
+    # Prepare directory for models
+    models_save_dir = './models/'
+    if not os.path.exists(models_save_dir):
+        os.mkdir(models_save_dir)
+
+    # Clean-up tensorboard dir if necessary
     tensorboard_dir = './logs'
-    # Clean-up if necessary
     if os.path.exists(tensorboard_dir):
         shutil.rmtree(tensorboard_dir, ignore_errors=True)
 
@@ -91,6 +96,7 @@ if __name__ == '__main__':
           epochs=50,
           train_data=train_data,
           valid_data=valid_data,
-          initial_optimizer='adam',
+          initial_optimizer=adadelta,
           secondary_optimizer=sgd,
+          models_save_dir=models_save_dir,
           tensorboard=board)

@@ -1,4 +1,7 @@
+from __future__ import division
+
 import itertools
+
 from keras import backend as K
 from keras.optimizers import Optimizer
 
@@ -21,7 +24,7 @@ def compute_decaying_difference_l2_loss(loss, params, time, l2_full_step, l2_dif
     for param in params:
         if getattr(param, 'penalize_difference', None) is not None:
             weight_name = param.penalize_difference
-            if weight_name in penalize_difference:
+            if weight_name not in penalize_difference:
                 penalize_difference[weight_name] = []
             penalize_difference[weight_name].append(param)
 
@@ -49,6 +52,7 @@ class BaseL2Optimizer(Optimizer):
         return NotImplementedError
 
     def get_l2_loss(self, loss, params, iterations):
+        iterations = K.cast(iterations, dtype='float32')
         loss = compute_decaying_l2_loss(loss, params, iterations, self.l2_full_step, self.l2_full_ratio)
         loss = compute_decaying_difference_l2_loss(loss, params, iterations, self.l2_full_step, self.l2_difference_full_ratio)
         return loss
