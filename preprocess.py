@@ -43,9 +43,9 @@ def get_all_snli_words_with_parts_of_speech(file_path):
     words = []
     parts_of_speech = []
     for sample in tqdm(train):
-        premise_words, premise_speech = get_words_with_part_of_speech(sample['sentence1_parse'])
+        premise_words,    premise_speech    = get_words_with_part_of_speech(sample['sentence1_parse'])
         hypothesis_words, hypothesis_speech = get_words_with_part_of_speech(sample['sentence2_parse'])
-        words += premise_words + hypothesis_words
+        words           += premise_words  + hypothesis_words
         parts_of_speech += premise_speech + hypothesis_speech
     return words, parts_of_speech
 
@@ -189,8 +189,8 @@ def parse(data):
 if __name__ == '__main__':
     path = get_snli_file_path()
     train_w, train_p = get_all_snli_words_with_parts_of_speech(path + 'snli_1.0_train.jsonl')
-    test_w, test_p = get_all_snli_words_with_parts_of_speech(path + 'snli_1.0_test.jsonl')
-    dev_w, dev_p = get_all_snli_words_with_parts_of_speech(path + 'snli_1.0_dev.jsonl')
+    test_w,  test_p  = get_all_snli_words_with_parts_of_speech(path + 'snli_1.0_test.jsonl')
+    dev_w,   dev_p   = get_all_snli_words_with_parts_of_speech(path + 'snli_1.0_dev.jsonl')
 
     words = train_w + test_w + dev_w
     parts_of_speech = train_p + test_p + dev_p

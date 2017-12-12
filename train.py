@@ -23,8 +23,13 @@ def train(model, epochs,
           tensorboard=TensorBoard(),
           shuffle=True):
 
+    print('train:')
+    [print(d.shape) for d in train_data]
+    print('valid:')
+    [print(d.shape) for d in valid_data]
+
     model.compile(optimizer=initial_optimizer,
-                  loss='binary_crossentropy',
+                  loss='categorical_crossentropy',
                   metrics=['accuracy'])
 
     step = 0
@@ -55,7 +60,7 @@ def train(model, epochs,
                 optimizer_switch_step = 10000000000           # Never update again
                 # params = model.save_weights()
                 model.compile(optimizer=secondary_optimizer,  # Compile the model again to use a new optimizer
-                              loss='binary_crossentropy',
+                              loss='categorical_crossentropy',
                               metrics=['accuracy'])
 
         # Log results to tensorboard and save the model
