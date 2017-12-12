@@ -1,15 +1,12 @@
 from __future__ import print_function
 
 import os
-import numpy as np
-
-from keras import backend as K
 from os import path
 
+import numpy as np
+from keras import backend as K
 from keras.utils import get_file
 from tqdm import tqdm
-try:    import cPickle as pickle  # Python 2
-except: import _pickle as pickle  # Python 3
 
 
 def get_snli_file_path():

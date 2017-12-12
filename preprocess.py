@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import json
 import os
 
@@ -50,9 +52,9 @@ def get_all_snli_words_with_parts_of_speech(file_path):
 
 def get_word_to_vecs(file_path, needed_words):
     res = {}
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, 'r') as f:
         for line in tqdm(f):
-            values = line.split(sep=' ')
+            values = line.split(' ')
             word = values[0]
 
             if word in needed_words:
