@@ -32,7 +32,7 @@ def get_words_with_part_of_speech(sentence_parse, maxlen=None):
     return words, parts_of_speech
 
 
-def get_all_snli_words(file_path):
+def get_all_snli_words_with_parts_of_speech(file_path):
     with open(file_path) as f:
         lines = f.readlines()
         text = '[' + ','.join(lines) + ']'
@@ -81,8 +81,8 @@ def label_to_one_hot(label, label_set=('entailment', 'contradiction', 'neutral')
     for i, l in enumerate(label_set):
         if label == l:
             res[i] = 1
-            break
-    return res
+            return res
+    raise ValueError('Illegal label provided')
 
 
 def pad(x, maxlen):
@@ -154,6 +154,11 @@ def parse(data):
     labels = []
 
     for sample in tqdm(data):
+        # As stated in paper: The labels provided in are “entailment”, “neutral’, “contra- diction” and “-”.
+        # “-”  shows that annotators cannot reach consensus with each other, thus removed during training and testing
+        # as in other works.
+        if sample['gold_label'] == '-':
+            continue
         sample_inputs = parse_one(sample['sentence1_parse'], sample['sentence2_parse'])
         label = label_to_one_hot(sample['gold_label'])
 
@@ -181,9 +186,9 @@ def parse(data):
 
 if __name__ == '__main__':
     path = get_snli_file_path()
-    train_w, train_p = get_all_snli_words(path + 'snli_1.0_train.jsonl')
-    test_w, test_p = get_all_snli_words(path + 'snli_1.0_test.jsonl')
-    dev_w, dev_p = get_all_snli_words(path + 'snli_1.0_dev.jsonl')
+    train_w, train_p = get_all_snli_words_with_parts_of_speech(path + 'snli_1.0_train.jsonl')
+    test_w, test_p = get_all_snli_words_with_parts_of_speech(path + 'snli_1.0_test.jsonl')
+    dev_w, dev_p = get_all_snli_words_with_parts_of_speech(path + 'snli_1.0_dev.jsonl')
 
     words = train_w + test_w + dev_w
     parts_of_speech = train_p + test_p + dev_p
@@ -209,12 +214,12 @@ if __name__ == '__main__':
         chars = chars.union(set(word))
 
     char_to_id = {}
-    part_of_speech_to_id = {}
     for i, c in enumerate(chars):
         char_to_id[c] = i + 1
         print(c, end=' ')
     print('\n')
 
+    part_of_speech_to_id = {}
     for i, part in enumerate(parts_of_speech):
         part_of_speech_to_id[part] = i + 1
         print(part, end=' ')

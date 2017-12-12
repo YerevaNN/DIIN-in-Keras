@@ -1,15 +1,15 @@
-import random
 import os
+import random
 import shutil
+
 import numpy as np
+from keras.callbacks import TensorBoard
 from tqdm import tqdm
 
 from model import construct_model
 from optimizers.adadelta import AdadeltaL2
 from optimizers.sgd import SGDL2
 from util import load_train_data
-
-from keras.callbacks import TensorBoard
 
 
 def train(model, epochs,
@@ -70,7 +70,7 @@ def train(model, epochs,
 if __name__ == '__main__':
 
     word_embedding_weights = np.load('data/word-vectors.npy')
-    train_data = load_train_data('data/dev')
+    train_data = load_train_data('data/train')
     valid_data = load_train_data('data/test')
 
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)

@@ -1,3 +1,2 @@
-nltk
-gensim
+tqdm
 keras
