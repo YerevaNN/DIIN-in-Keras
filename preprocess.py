@@ -52,7 +52,7 @@ def get_all_snli_words_with_parts_of_speech(file_path):
 
 def get_word_to_vecs(file_path, needed_words):
     res = {}
-    with open(file_path, 'r') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         for line in tqdm(f):
             values = line.split(' ')
             word = values[0]
@@ -97,16 +97,16 @@ def pad(x, maxlen):
 
 def parse_one(premise_parse, hypothesis_parse, maxlen=32):
     # Words
-    premise_words, premise_parts_of_speech = get_words_with_part_of_speech(premise_parse, maxlen=None)
-    hypothesis_words, hypothesis_parts_of_speech = get_words_with_part_of_speech(hypothesis_parse, maxlen=None)
-    premise_word_ids = [word_to_id[word] for word in premise_words]
+    premise_words,      premise_parts_of_speech    = get_words_with_part_of_speech(premise_parse,    maxlen=None)
+    hypothesis_words,   hypothesis_parts_of_speech = get_words_with_part_of_speech(hypothesis_parse, maxlen=None)
+    premise_word_ids    = [word_to_id[word] for word in premise_words]
     hypothesis_word_ids = [word_to_id[word] for word in hypothesis_words]
 
     # Syntactical features
-    syntactical_premise = [part_of_speech_to_id[part] for part in premise_parts_of_speech]
+    syntactical_premise    = [part_of_speech_to_id[part] for part in premise_parts_of_speech]
     syntactical_hypothesis = [part_of_speech_to_id[part] for part in hypothesis_parts_of_speech]
-    premise_hot = list(np.eye(len(part_of_speech_to_id) + 2)[syntactical_premise])  # Convert to 1-hot
-    hypothesis_hot = list(np.eye(len(part_of_speech_to_id) + 2)[syntactical_hypothesis])  # Convert to 1-hot
+    premise_hot    = list(np.eye(len(part_of_speech_to_id) + 2)[syntactical_premise])       # Convert to 1-hot
+    hypothesis_hot = list(np.eye(len(part_of_speech_to_id) + 2)[syntactical_hypothesis])    # Convert to 1-hot
 
     syntactical_premise = []
     syntactical_hypothesis = []
@@ -118,18 +118,18 @@ def parse_one(premise_parse, hypothesis_parse, maxlen=32):
         l = list(hot)
         l.append(word in premise_words)
         syntactical_hypothesis.append(np.array(l))
-    syntactical_premise = np.array(syntactical_premise)
+    syntactical_premise    = np.array(syntactical_premise)
     syntactical_hypothesis = np.array(syntactical_hypothesis)
 
     # Chars
     premise_chars = []
     hypothesis_chars = []
-    for word in premise_words:     premise_chars.append([char_to_id[c] for c in word])
+    for word in premise_words:     premise_chars.append(   [char_to_id[c] for c in word])
     for word in hypothesis_words:  hypothesis_chars.append([char_to_id[c] for c in word])
-    premise_chars = pad_sequences(premise_chars, maxlen=14, padding='post', truncating='post', value=0.)
+    premise_chars    = pad_sequences(premise_chars,    maxlen=14, padding='post', truncating='post', value=0.)
     hypothesis_chars = pad_sequences(hypothesis_chars, maxlen=14, padding='post', truncating='post', value=0.)
 
-    return np.array(premise_word_ids), pad(premise_chars, maxlen), pad(syntactical_premise, maxlen), \
+    return np.array(premise_word_ids),    pad(premise_chars, maxlen),    pad(syntactical_premise, maxlen), \
            np.array(hypothesis_word_ids), pad(hypothesis_chars, maxlen), pad(syntactical_hypothesis, maxlen)
 
 
