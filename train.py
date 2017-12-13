@@ -61,9 +61,7 @@ def train(model, epochs,
             tensorboard.on_epoch_end(epoch=step, logs={'acc': accuracy,
                                                        'loss': loss,
                                                        'precision': prec,
-                                                       'recall': rec,
-                                                       'best_loss': best_loss,
-                                                       'switch_step': optimizer_switch_step})
+                                                       'recall': rec})
             step += 1
             no_progress_steps += 1
             if loss < best_loss:
@@ -71,11 +69,13 @@ def train(model, epochs,
                 no_progress_steps = 0
 
             if no_progress_steps >= optimizer_switch_step:
+                print('Switching to the secondary optimizer...')
                 optimizer_switch_step = 10000000000           # Never update again
                 # params = model.save_weights()
                 model.compile(optimizer=secondary_optimizer,  # Compile the model again to use a new optimizer
                               loss='categorical_crossentropy',
                               metrics=['accuracy', precision, recall])
+                print('Recompiled the model!')
 
     tensorboard.on_train_end('Good Bye!')
 
