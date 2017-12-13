@@ -1,9 +1,12 @@
+from __future__ import print_function
+
 import os
 import random
 import shutil
 
 import numpy as np
 from keras.callbacks import TensorBoard
+from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 
 from model import construct_model
@@ -44,10 +47,20 @@ def train(model, epochs,
         train_inputs = train_data[:-1]
         train_labels = train_data[-1]
 
+        # Log results to tensorboard and save the model
+        [val_loss, val_acc] = model.evaluate(valid_data[:-1], valid_data[-1])
+        logs = {'val_loss': val_loss, 'val_acc': val_acc}
+        tensorboard.on_epoch_end(epoch=epoch, logs=logs)
+        model.save(filepath=models_save_dir + 'epoch={}-vloss={}-vacc={}.model'.format(epoch, val_loss, val_acc))
+
+        # Get confusion matrix for validation data
+        print('\nConfusion matrix for epoch', epoch, ':\n',
+              confusion_matrix(valid_data[-1], model.predict(valid_data[:-1])))
+
         for batch in tqdm(range(0, len(train_data[0]), batch_size)):
             [loss, accuracy] = model.train_on_batch([train_input[batch: batch+batch_size] for train_input in train_inputs],
                                                     train_labels[batch: batch+batch_size])
-            logs = {'acc': accuracy, 'loss': loss}
+            logs = {'acc': accuracy, 'loss': loss, 'best_loss': best_loss, 'switch_step': optimizer_switch_step}
             tensorboard.on_epoch_end(epoch=step, logs=logs)
 
             step += 1
@@ -62,12 +75,6 @@ def train(model, epochs,
                 model.compile(optimizer=secondary_optimizer,  # Compile the model again to use a new optimizer
                               loss='categorical_crossentropy',
                               metrics=['accuracy'])
-
-        # Log results to tensorboard and save the model
-        [val_loss, val_acc] = model.evaluate(valid_data[:-1], valid_data[-1])
-        logs = {'val_loss': val_loss, 'val_acc': val_acc}
-        tensorboard.on_epoch_end(epoch=step, logs=logs)
-        model.save(filepath=models_save_dir + 'epoch={}-vloss={}-vacc={}.model'.format(epoch, val_loss, val_acc))
 
     tensorboard.on_train_end('Good Bye!')
 
@@ -98,7 +105,7 @@ if __name__ == '__main__':
 
     board = TensorBoard(log_dir=tensorboard_dir)
     train(model=model,
-          epochs=50,
+          epochs=20,
           train_data=train_data,
           valid_data=valid_data,
           initial_optimizer=adadelta,
