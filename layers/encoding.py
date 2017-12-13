@@ -20,33 +20,33 @@ class Encoding(Layer):
     def build(self, input_shape):
         self.w_itr_att = self.add_weight(name='w_itr_att',
                                          shape=(3 * self.d,),
-                                         initializer='uniform',
+                                         initializer='he_normal',
                                          trainable=True)
 
         self.w1 = self.add_weight(name='W1',
                                   shape=(2 * self.d, self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
         self.w2 = self.add_weight(name='W2',
                                   shape=(2 * self.d, self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
         self.w3 = self.add_weight(name='W3',
                                   shape=(2 * self.d, self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
 
         self.b1 = self.add_weight(name='b1',
                                   shape=(self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
         self.b2 = self.add_weight(name='b2',
                                   shape=(self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
         self.b3 = self.add_weight(name='b3',
                                   shape=(self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
 
         # Add parameters for weights to penalize difference between them
@@ -119,13 +119,11 @@ class Encoding(Layer):
         # P_transposed.shape = (batch, d, p)
         # mid = broadcast_to(P_transposed, shape=(p, d, p))
         # up  = permute_dimensions(up, shape=(2, 1, 0))
-        mid = broadcast_last_axis(P)                            # mid.shape = (batch, p, d, p)
-        up = K.permute_dimensions(mid, pattern=(0, 3, 2, 1))    # up.shape  = (batch, p, d, p)
-        print(K.int_shape(mid))
-
-        # A = dot( W_itr_attn, alphaP )
-        alphaP = K.concatenate([up, mid, up * mid], axis=2)
-        A = K.dot(self.w_itr_att, alphaP)
+        ''' Alpha '''
+        mid = broadcast_last_axis(P)                            # (batch, p, d, p)
+        up = K.permute_dimensions(mid, pattern=(0, 3, 2, 1))    # (batch, p, d, p)
+        alphaP = K.concatenate([up, mid, up * mid], axis=2)     # (batch, p, 3d, p)
+        A = K.dot(self.w_itr_att, alphaP)                       # (batch, p, p)
 
         ''' Self-attention '''
         # P_itr_attn[i] = sum of for j = 1...p:
