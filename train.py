@@ -8,20 +8,21 @@ import numpy as np
 from keras.callbacks import TensorBoard
 from tqdm import tqdm
 
-from metrics import precision, recall
 from model import construct_model
 from optimizers.adadelta import AdadeltaL2
 from optimizers.sgd import SGDL2
 from util import load_train_data
 
 
-def train(model, epochs,
+def train(model,
           train_data,
           valid_data,
+          test_data,
           initial_optimizer,
           secondary_optimizer,
           models_save_dir='./models/',
           optimizer_switch_step=30000,
+          epochs=30,
           batch_size=70,
           tensorboard=TensorBoard(),
           shuffle=True):
@@ -33,11 +34,10 @@ def train(model, epochs,
 
     model.compile(optimizer=initial_optimizer,
                   loss='categorical_crossentropy',
-                  metrics=['accuracy', precision, recall])
+                  metrics=['accuracy'])
 
-    step = 0
+    step, no_progress_steps = 0, 0
     best_loss = 1000.
-    no_progress_steps = 0
     tensorboard.set_model(model)
 
     # Start training
@@ -48,34 +48,32 @@ def train(model, epochs,
         train_labels = train_data[-1]
 
         # Log results to tensorboard and save the model
-        [val_loss, val_acc, val_prec, val_rec] = model.evaluate(valid_data[:-1], valid_data[-1])
-        tensorboard.on_epoch_end(epoch=epoch, logs={'val_loss': val_loss,
-                                                    'val_acc': val_acc,
-                                                    'val_precision': val_prec,
-                                                    'val_recall': val_rec})
+        [val_loss,  val_acc]  = model.evaluate(valid_data[:-1], valid_data[-1], batch_size=batch_size)
+        [test_loss, test_acc] = model.evaluate(test_data[:-1],  test_data[-1],  batch_size=batch_size)
+        tensorboard.on_epoch_end(epoch=epoch, logs={'val_acc': val_acc,   'val_loss': val_loss})
+        tensorboard.on_epoch_end(epoch=epoch, logs={'test_acc': test_acc, 'test_loss': test_loss})
         model.save(filepath=models_save_dir + 'epoch={}-vloss={}-vacc={}.model'.format(epoch, val_loss, val_acc))
 
-        for batch in tqdm(range(0, len(train_data[0]), batch_size)):
-            [loss, accuracy, prec, rec] = model.train_on_batch([train_input[batch: batch+batch_size] for train_input in train_inputs],
-                                                               train_labels[batch: batch+batch_size])
-            tensorboard.on_epoch_end(epoch=step, logs={'acc': accuracy,
-                                                       'loss': loss,
-                                                       'precision': prec,
-                                                       'recall': rec})
-            step += 1
-            no_progress_steps += 1
-            if loss < best_loss:
-                best_loss = loss
-                no_progress_steps = 0
+        # Switch optimizer if it's necessary
+        no_progress_steps += 1
+        if loss < best_loss:
+            best_loss = loss
+            no_progress_steps = 0
 
-            if no_progress_steps >= optimizer_switch_step:
-                print('Switching to the secondary optimizer...')
-                optimizer_switch_step = 10000000000           # Never update again
-                # params = model.save_weights()
-                model.compile(optimizer=secondary_optimizer,  # Compile the model again to use a new optimizer
-                              loss='categorical_crossentropy',
-                              metrics=['accuracy', precision, recall])
-                print('Recompiled the model!')
+        if no_progress_steps >= optimizer_switch_step:
+            print('Switching to the secondary optimizer...')
+            optimizer_switch_step = 10000000000             # Never update again
+            model.compile(optimizer=secondary_optimizer,    # Compile the model again to use a new optimizer
+                          loss='categorical_crossentropy',
+                          metrics=['accuracy'])
+            print('Recompiled the model!')
+
+        # Train one epoch
+        for batch in tqdm(range(0, len(train_data[0]), batch_size)):
+            [loss, acc] = model.train_on_batch([train_input[batch: batch+batch_size] for train_input in train_inputs],
+                                               train_labels[batch: batch+batch_size])
+            tensorboard.on_epoch_end(epoch=step, logs={'acc': acc, 'loss': loss})
+            step += 1
 
     tensorboard.on_train_end('Good Bye!')
 
@@ -85,6 +83,7 @@ if __name__ == '__main__':
     word_embedding_weights = np.load('data/word-vectors.npy')
     train_data = load_train_data('data/train')
     valid_data = load_train_data('data/test')
+    dev_data = load_train_data('data/dev')
 
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)
     sgd = SGDL2(lr=3e-4)
@@ -109,7 +108,9 @@ if __name__ == '__main__':
           epochs=20,
           train_data=train_data,
           valid_data=valid_data,
+          test_data=dev_data,
           initial_optimizer=adadelta,
           secondary_optimizer=sgd,
+          optimizer_switch_step=2,
           models_save_dir=models_save_dir,
           tensorboard=board)
