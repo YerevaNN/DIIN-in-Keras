@@ -273,6 +273,7 @@ if __name__ == '__main__':
     print('Found', len(snli_preprocessor.unique_words), 'unique words')
     print('Found', len(snli_preprocessor.unique_parts_of_speech), 'unique parts of speech')
     snli_preprocessor.init_mappings()
+    snli_preprocessor.save_word_vectors('data/word-vectors.npy')
     snli_preprocessor.parse(dev_path,   ChunkDataManager(load_data_path='data/dev',   save_data_path='data/dev'))
     snli_preprocessor.parse(train_path, ChunkDataManager(load_data_path='data/train', save_data_path='data/train'))
     snli_preprocessor.parse(test_path,  ChunkDataManager(load_data_path='data/test',  save_data_path='data/test'))
