@@ -6,7 +6,7 @@ import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 from tqdm import tqdm
 
-from util import get_snli_file_path
+from util import get_snli_file_path, ChunkDataManager
 from util import get_word2vec_file_path
 
 
@@ -158,10 +158,18 @@ class BasePreprocessor(object):
                 return res
         raise ValueError('Illegal label provided')
 
-    def parse_one(self, premise_parse, hypothesis_parse, maxlen, char_pad_size):
+    def parse_one(self, premise, hypothesis, maxlen, char_pad_size):
+        """
+        :param premise: sentence
+        :param hypothesis: sentence
+        :param maxlen: maximum length of words to allow
+        :param char_pad_size: number of chars in each word
+        :return: (premise_word_ids,    premise_chars,    syntactical_premise,
+                  hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
+        """
         # Words
-        premise_words,      premise_parts_of_speech    = self.get_words_with_part_of_speech(premise_parse)
-        hypothesis_words,   hypothesis_parts_of_speech = self.get_words_with_part_of_speech(hypothesis_parse)
+        premise_words,      premise_parts_of_speech    = self.get_words_with_part_of_speech(premise)
+        hypothesis_words,   hypothesis_parts_of_speech = self.get_words_with_part_of_speech(hypothesis)
         premise_word_ids    = [self.word_to_id[word] for word in premise_words]
         hypothesis_word_ids = [self.word_to_id[word] for word in hypothesis_words]
 
@@ -196,6 +204,14 @@ class BasePreprocessor(object):
                 np.array(hypothesis_word_ids), pad(hypothesis_chars, maxlen), pad(syntactical_hypothesis, maxlen))
 
     def parse(self, input_file_path, data_manager, max_word_len=32, char_pad_size=14):
+        """
+        :param input_file_path: file to parse data from
+        :param data_manager: manager for saving results
+        :param max_word_len: number of maximum words in a sentence
+        :param char_pad_size: number of chars in each word (padding is applied if not enough)
+        :return: (premise_word_ids,    premise_chars,    syntactical_premise,
+                  hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
+        """
         # res = [input_word_p, input_char_p, input_syn_p, input_word_h, input_char_h, input_syn_h, labels]
         res = [[], [], [], [], [], [], []]
 
