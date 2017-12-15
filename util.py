@@ -45,20 +45,27 @@ def get_word2vec_file_path():
     return glove_file_path
 
 
-def save_train_data(directory, data):
-    if not os.path.exists(directory):
-        os.mkdir(directory)
-    for i, item in tqdm(enumerate(data)):
-        np.save(directory + '/' + str(i) + '.npy', item)
+class ChunkDataManager(object):
+    def __init__(self, load_data_path, save_data_path):
+        self.load_data_path = load_data_path
+        self.save_data_path = save_data_path
 
+    def load(self):
+        data = []
+        for file in tqdm(sorted(os.listdir(self.load_data_path))):
+            if not file.endswith('.npy'):
+                continue
+            data.append(np.load(self.load_data_path + '/' + file))
+        return data
 
-def load_train_data(directory):
-    data = []
-    for file in tqdm(sorted(os.listdir(directory))):
-        if not file.endswith('.npy'):
-            continue
-        data.append(np.load(directory + '/' + file))
-    return data
+    def save(self, data):
+        print('Saving data of shapes:')
+        if not os.path.exists(self.save_data_path):
+            os.mkdir(self.save_data_path)
+        for i, item in tqdm(enumerate(data)):
+            print(item.shape, end='\t')
+            np.save(self.save_data_path + '/' + str(i) + '.npy', item)
+        print('\n')
 
 
 def broadcast_last_axis(x):

@@ -11,7 +11,7 @@ from tqdm import tqdm
 from model import construct_model
 from optimizers.adadelta import AdadeltaL2
 from optimizers.sgd import SGDL2
-from util import load_train_data
+from util import ChunkDataManager
 
 
 def train(model,
@@ -81,9 +81,9 @@ def train(model,
 if __name__ == '__main__':
 
     word_embedding_weights = np.load('data/word-vectors.npy')
-    train_data = load_train_data('data/train')
-    valid_data = load_train_data('data/test')
-    dev_data = load_train_data('data/dev')
+    train_data = ChunkDataManager(load_data_path='data/train', save_data_path=None).load()
+    valid_data = ChunkDataManager(load_data_path='data/test',  save_data_path=None).load()
+    dev_data   = ChunkDataManager(load_data_path='data/dev',   save_data_path=None).load()
 
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)
     sgd = SGDL2(lr=3e-4)

@@ -41,21 +41,21 @@ def construct_model(p=None,
 
     '''Embedding layer'''
     # 1. Word embedding input
-    premise_word_input = Input(shape=(p,),    name='PremiseWordInput',    dtype='int64')
-    hypothesis_word_input = Input(shape=(h,), name='HypothesisWordInput', dtype='int64')
+    premise_word_input    = Input(shape=(p,), dtype='int64', name='PremiseWordInput')
+    hypothesis_word_input = Input(shape=(h,), dtype='int64', name='HypothesisWordInput')
 
     word_embedding = Embedding(input_dim=word_embedding_weights.shape[0],
                                output_dim=word_embedding_size,
                                weights=[word_embedding_weights],
                                trainable=True,
                                name='WordEmbedding')
-    premise_word_embedding = word_embedding(premise_word_input)
+    premise_word_embedding    = word_embedding(premise_word_input)
     hypothesis_word_embedding = word_embedding(hypothesis_word_input)
-    premise_word_embedding = DecayingDropout(decay_interval=10000, decay_rate=0.977)(premise_word_embedding)
+    premise_word_embedding    = DecayingDropout(decay_interval=10000, decay_rate=0.977)(premise_word_embedding)
     hypothesis_word_embedding = DecayingDropout(decay_interval=10000, decay_rate=0.977)(hypothesis_word_embedding)
 
     # 2. Character input
-    premise_char_input = Input(shape=(p, char_pad_size,))
+    premise_char_input    = Input(shape=(p, char_pad_size,))
     hypothesis_char_input = Input(shape=(h, char_pad_size,))
 
     # Share weights of character-level embedding for premise and hypothesis
@@ -65,21 +65,21 @@ def construct_model(p=None,
         GlobalMaxPooling1D()
     ]))
     character_embedding_layer.build(input_shape=(None, None, char_pad_size))
-    premise_char_embedding = character_embedding_layer(premise_char_input)
+    premise_char_embedding    = character_embedding_layer(premise_char_input)
     hypothesis_char_embedding = character_embedding_layer(hypothesis_char_input)
 
     # 3. Syntactical features
-    premise_syntactical_input = Input(shape=(p, syntactical_feature_size,))
+    premise_syntactical_input    = Input(shape=(p, syntactical_feature_size,))
     hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,))
 
     # Concatenate all features
-    premise_embedding = Concatenate()([premise_word_embedding,       premise_char_embedding,    premise_syntactical_input])
+    premise_embedding    = Concatenate()([premise_word_embedding,    premise_char_embedding,    premise_syntactical_input])
     hypothesis_embedding = Concatenate()([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
     d = K.int_shape(hypothesis_embedding)[-1]
 
     '''Encoding layer'''
     # --Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]--
-    premise_encoding = Encoding(d=d,    name='PremiseEncoding')(premise_embedding)
+    premise_encoding    = Encoding(d=d, name='PremiseEncoding')(premise_embedding)
     hypothesis_encoding = Encoding(d=d, name='HypothesisEncoding')(hypothesis_embedding)
 
     '''Interaction layer'''
