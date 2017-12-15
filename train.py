@@ -56,8 +56,8 @@ def train(model,
 
         # Switch optimizer if it's necessary
         no_progress_steps += 1
-        if loss < best_loss:
-            best_loss = loss
+        if val_loss < best_loss:
+            best_loss = val_loss
             no_progress_steps = 0
 
         if no_progress_steps >= optimizer_switch_step:
@@ -91,7 +91,8 @@ if __name__ == '__main__':
                             h=32,
                             word_embedding_weights=word_embedding_weights,
                             char_pad_size=14,
-                            syntactical_feature_size=48)
+                            syntactical_feature_size=48,
+                            char_embedding_size=64)
 
     # Prepare directory for models
     models_save_dir = './models/'
