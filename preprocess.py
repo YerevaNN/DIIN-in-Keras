@@ -64,27 +64,13 @@ class BasePreprocessor(object):
 
             for sample in tqdm(data):
                 premise, hypothesis = self.get_sentences(sample)
-                premise_words, premise_speech       = self.get_words_with_part_of_speech(premise)
+                premise_words,    premise_speech    = self.get_words_with_part_of_speech(premise)
                 hypothesis_words, hypothesis_speech = self.get_words_with_part_of_speech(hypothesis)
                 self.all_words           += premise_words  + hypothesis_words
                 self.all_parts_of_speech += premise_speech + hypothesis_speech
 
-        self.unique_words = set(self.all_words)
+        self.unique_words           = set(self.all_words)
         self.unique_parts_of_speech = set(self.all_parts_of_speech)
-
-    def init_chars(self, words):
-        """
-        Init char -> id mapping
-        """
-        chars = set()
-        self.char_to_id = {}
-        for word in words:
-            chars = chars.union(set(word))
-
-        for i, c in enumerate(chars):
-            self.char_to_id[c] = i + 1
-            print(c, end=' ')
-        print('\n')
 
     def init_word_to_vecs(self, vectors_file_path, needed_words):
         """
@@ -124,6 +110,20 @@ class BasePreprocessor(object):
 
         self.vectors = np.array(self.vectors)
 
+    def init_chars(self, words):
+        """
+        Init char -> id mapping
+        """
+        chars = set()
+        self.char_to_id = {}
+        for word in words:
+            chars = chars.union(set(word))
+
+        for i, c in enumerate(chars):
+            self.char_to_id[c] = i + 1
+            print(c, end=' ')
+        print('\n')
+
     def init_parts_of_speech(self, parts_of_speech):
         """
         :param parts_of_speech:
@@ -158,12 +158,12 @@ class BasePreprocessor(object):
                 return res
         raise ValueError('Illegal label provided')
 
-    def parse_one(self, premise, hypothesis, maxlen, char_pad_size):
+    def parse_one(self, premise, hypothesis, maxlen, chars_per_word):
         """
         :param premise: sentence
         :param hypothesis: sentence
         :param maxlen: maximum length of words to allow
-        :param char_pad_size: number of chars in each word
+        :param chars_per_word: number of chars in each word
         :return: (premise_word_ids,    premise_chars,    syntactical_premise,
                   hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
         """
@@ -197,18 +197,18 @@ class BasePreprocessor(object):
         hypothesis_chars = []
         for word in premise_words:     premise_chars.append(   [self.char_to_id[c] for c in word])
         for word in hypothesis_words:  hypothesis_chars.append([self.char_to_id[c] for c in word])
-        premise_chars    = pad_sequences(premise_chars,    maxlen=char_pad_size, padding='post', truncating='post')
-        hypothesis_chars = pad_sequences(hypothesis_chars, maxlen=char_pad_size, padding='post', truncating='post')
+        premise_chars    = pad_sequences(premise_chars, maxlen=chars_per_word, padding='post', truncating='post')
+        hypothesis_chars = pad_sequences(hypothesis_chars, maxlen=chars_per_word, padding='post', truncating='post')
 
         return (np.array(premise_word_ids),    pad(premise_chars,    maxlen), pad(syntactical_premise,    maxlen),
                 np.array(hypothesis_word_ids), pad(hypothesis_chars, maxlen), pad(syntactical_hypothesis, maxlen))
 
-    def parse(self, input_file_path, data_manager, max_word_len=32, char_pad_size=14):
+    def parse(self, input_file_path, data_saver, max_words=32, chars_per_word=14):
         """
         :param input_file_path: file to parse data from
-        :param data_manager: manager for saving results
-        :param max_word_len: number of maximum words in a sentence
-        :param char_pad_size: number of chars in each word (padding is applied if not enough)
+        :param data_saver: manager for saving results
+        :param max_words: number of maximum words in a sentence
+        :param chars_per_word: number of chars in each word (padding is applied if not enough)
         :return: (premise_word_ids,    premise_chars,    syntactical_premise,
                   hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
         """
@@ -217,14 +217,13 @@ class BasePreprocessor(object):
 
         data = self.load_data(input_file_path)
         for sample in tqdm(data):
-            # As stated in paper: The labels provided in are “entailment”, “neutral’, “contra- diction” and “-”.
+            # As stated in paper: The labels provided in are “entailment”, “neutral’, “contradiction” and “-”.
             # “-”  shows that annotators cannot reach consensus with each other, thus removed during training and testing
-            # as in other works.
             label = self.get_label(sample=sample)
             if label == '-':
                 continue
             premise, hypothesis = self.get_sentences(sample=sample)
-            sample_inputs = self.parse_one(premise, hypothesis, maxlen=max_word_len, char_pad_size=char_pad_size)
+            sample_inputs = self.parse_one(premise, hypothesis, maxlen=max_words, chars_per_word=chars_per_word)
             label = self.label_to_one_hot(label=label)
 
             sample_result = list(sample_inputs)
@@ -232,10 +231,10 @@ class BasePreprocessor(object):
             for res_item, parsed_item in zip(res, sample_result):
                 res_item.append(parsed_item)
 
-        res[0] = pad_sequences(res[0], maxlen=max_word_len, padding='post', truncating='post', value=0.)  # Word input
-        res[3] = pad_sequences(res[3], maxlen=max_word_len, padding='post', truncating='post', value=0.)  # Word input
+        res[0] = pad_sequences(res[0], maxlen=max_words, padding='post', truncating='post', value=0.)  # Word input
+        res[3] = pad_sequences(res[3], maxlen=max_words, padding='post', truncating='post', value=0.)  # Word input
         res = (np.array(item) for item in res)
-        data_manager.save(res)
+        data_saver.save(res)
         return res
 
 
