@@ -16,8 +16,8 @@ from util import ChunkDataManager
 
 def train(model,
           train_data,
-          valid_data,
           test_data,
+          dev_data,
           initial_optimizer,
           secondary_optimizer,
           models_save_dir='./models/',
@@ -27,10 +27,9 @@ def train(model,
           tensorboard=TensorBoard(),
           shuffle=True):
 
-    print('train:')
-    [print(d.shape) for d in train_data]
-    print('valid:')
-    [print(d.shape) for d in valid_data]
+    print('train:\t', [d.shape for d in train_data])
+    print('test:\t',  [d.shape for d in test_data])
+    print('dev:\t',   [d.shape for d in dev_data])
 
     model.compile(optimizer=initial_optimizer,
                   loss='categorical_crossentropy',
@@ -48,16 +47,16 @@ def train(model,
         train_labels = train_data[-1]
 
         # Log results to tensorboard and save the model
-        [val_loss,  val_acc]  = model.evaluate(valid_data[:-1], valid_data[-1], batch_size=batch_size)
-        [test_loss, test_acc] = model.evaluate(test_data[:-1],  test_data[-1],  batch_size=batch_size)
-        tensorboard.on_epoch_end(epoch=epoch, logs={'val_acc': val_acc,   'val_loss': val_loss})
+        [test_loss, test_acc] = model.evaluate(test_data[:-1], test_data[-1], batch_size=batch_size)
+        [dev_loss,  dev_acc]  = model.evaluate(dev_data[:-1],  dev_data[-1],  batch_size=batch_size)
         tensorboard.on_epoch_end(epoch=epoch, logs={'test_acc': test_acc, 'test_loss': test_loss})
-        model.save(filepath=models_save_dir + 'epoch={}-vloss={}-vacc={}.model'.format(epoch, val_loss, val_acc))
+        tensorboard.on_epoch_end(epoch=epoch, logs={'dev_acc': dev_acc,   'dev_loss': dev_loss})
+        model.save(filepath=models_save_dir + 'epoch={}-tloss={}-tacc={}.model'.format(epoch, test_loss, test_acc))
 
         # Switch optimizer if it's necessary
         no_progress_steps += 1
-        if val_loss < best_loss:
-            best_loss = val_loss
+        if test_loss < best_loss:
+            best_loss = test_loss
             no_progress_steps = 0
 
         if no_progress_steps >= optimizer_switch_step:
@@ -82,7 +81,7 @@ if __name__ == '__main__':
 
     word_embedding_weights = np.load('data/word-vectors.npy')
     train_data = ChunkDataManager(load_data_path='data/train', save_data_path=None).load()
-    valid_data = ChunkDataManager(load_data_path='data/test',  save_data_path=None).load()
+    test_data  = ChunkDataManager(load_data_path='data/test',  save_data_path=None).load()
     dev_data   = ChunkDataManager(load_data_path='data/dev',   save_data_path=None).load()
 
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)
@@ -92,7 +91,7 @@ if __name__ == '__main__':
                             word_embedding_weights=word_embedding_weights,
                             char_pad_size=14,
                             syntactical_feature_size=48,
-                            char_embedding_size=64)
+                            char_embedding_size=55)
 
     # Prepare directory for models
     models_save_dir = './models/'
@@ -108,8 +107,8 @@ if __name__ == '__main__':
     train(model=model,
           epochs=20,
           train_data=train_data,
-          valid_data=valid_data,
-          test_data=dev_data,
+          test_data=test_data,
+          dev_data=dev_data,
           initial_optimizer=adadelta,
           secondary_optimizer=sgd,
           optimizer_switch_step=2,

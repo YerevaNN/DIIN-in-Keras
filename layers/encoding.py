@@ -20,33 +20,33 @@ class Encoding(Layer):
     def build(self, input_shape):
         self.w_itr_att = self.add_weight(name='w_itr_att',
                                          shape=(3 * self.d,),
-                                         initializer='he_normal',
+                                         initializer='uniform',
                                          trainable=True)
 
         self.w1 = self.add_weight(name='W1',
                                   shape=(2 * self.d, self.d,),
-                                  initializer='he_normal',
+                                  initializer='uniform',
                                   trainable=True)
         self.w2 = self.add_weight(name='W2',
                                   shape=(2 * self.d, self.d,),
-                                  initializer='he_normal',
+                                  initializer='uniform',
                                   trainable=True)
         self.w3 = self.add_weight(name='W3',
                                   shape=(2 * self.d, self.d,),
-                                  initializer='he_normal',
+                                  initializer='uniform',
                                   trainable=True)
 
         self.b1 = self.add_weight(name='b1',
                                   shape=(self.d,),
-                                  initializer='he_normal',
+                                  initializer='uniform',
                                   trainable=True)
         self.b2 = self.add_weight(name='b2',
                                   shape=(self.d,),
-                                  initializer='he_normal',
+                                  initializer='uniform',
                                   trainable=True)
         self.b3 = self.add_weight(name='b3',
                                   shape=(self.d,),
-                                  initializer='he_normal',
+                                  initializer='uniform',
                                   trainable=True)
 
         # Add parameters for weights to penalize difference between them
