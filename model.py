@@ -1,4 +1,3 @@
-import numpy as np
 from keras import backend as K
 from keras.engine import Model
 from keras.layers import Input, Dense, Conv2D, Embedding, Conv1D, TimeDistributed, GlobalMaxPooling1D, Concatenate
@@ -10,97 +9,109 @@ from layers.encoding import Encoding
 from layers.interaction import Interaction
 
 
-def construct_model(p=None,
-                    h=None,
-                    word_embedding_weights=np.array([]),
-                    word_embedding_size=300,
-                    char_embedding_size=30,
-                    char_pad_size=14,
-                    syntactical_feature_size=7,
-                    FSDR=0.3,
-                    TSDR=0.5,
-                    GR=20,
-                    n=8):
+class DIIN(Model):
+    def __init__(self,
+                 p,
+                 h,
+                 word_embedding_weights,
+                 char_embedding_size=30,
+                 char_pad_size=14,
+                 syntactical_feature_size=50,
+                 dropout_decay_interval=10000,
+                 dropout_decay_rate=0.977,
+                 dropout_initial_keep_rate=1.,
+                 FSDR=0.3,
+                 TSDR=0.5,
+                 GR=20,
+                 n=8,
+                 nb_dense_blocks=3,
+                 name='DIIN'):
+        """
+        :ref https://openreview.net/forum?id=r1dHXnH6-&noteId=r1dHXnH6-
 
-    """
-    :param p: sequence length of premise
-    :param h: sequence length of hypothesis
-    :param word_embedding_weights: matrix of weights for word embeddings (GloVe pre-trained vectors)
-    :param word_embedding_size: size of the word-embedding vector (default GloVe is 300)
-    :param char_embedding_size: input size of the character-embedding layer
-    :param char_pad_size: length of the padding size for each word
-    :param syntactical_feature_size: size of the syntactical feature vector for each word
-    :param FSDR: first scale down ratio in densenet
-    :param TSDR: transition scale down ratio in densenet
-    :param GR: growing rate in densenet
-    :param n: number of layers in one dense-block
+        :param p: sequence length of premise
+        :param h: sequence length of hypothesis
+        :param word_embedding_weights: matrix of weights for word embeddings (GloVe pre-trained vectors)
+        :param char_embedding_size: input size of the character-embedding layer
+        :param char_pad_size: length of the padding size for each word
+        :param syntactical_feature_size: size of the syntactical feature vector for each word
+        :param dropout_initial_keep_rate: initial state of dropout
+        :param dropout_decay_rate: how much to change dropout at each interval
+        :param dropout_decay_interval: how much time to wait for the next update
+        :param FSDR: first scale down ratio in densenet
+        :param TSDR: transition scale down ratio in densenet
+        :param GR: growing rate in densenet
+        :param n: number of layers in one dense-block
+        :param nb_dense_blocks:
+        """
 
-    :ref https://openreview.net/forum?id=r1dHXnH6-&noteId=r1dHXnH6-
-    :returns DIIN model
-    """
+        '''Embedding layer'''
+        # 1. Word embedding input
+        premise_word_input    = Input(shape=(p,), dtype='int64', name='PremiseWordInput')
+        hypothesis_word_input = Input(shape=(h,), dtype='int64', name='HypothesisWordInput')
 
-    '''Embedding layer'''
-    # 1. Word embedding input
-    premise_word_input    = Input(shape=(p,), dtype='int64', name='PremiseWordInput')
-    hypothesis_word_input = Input(shape=(h,), dtype='int64', name='HypothesisWordInput')
+        print(word_embedding_weights.shape)
 
-    word_embedding = Embedding(input_dim=word_embedding_weights.shape[0],
-                               output_dim=word_embedding_size,
-                               weights=[word_embedding_weights],
-                               trainable=True,
-                               name='WordEmbedding')
-    premise_word_embedding    = word_embedding(premise_word_input)
-    hypothesis_word_embedding = word_embedding(hypothesis_word_input)
-    premise_word_embedding    = DecayingDropout(decay_interval=10000, decay_rate=0.977)(premise_word_embedding)
-    hypothesis_word_embedding = DecayingDropout(decay_interval=10000, decay_rate=0.977)(hypothesis_word_embedding)
+        word_embedding = Embedding(input_dim=word_embedding_weights.shape[0],
+                                   output_dim=word_embedding_weights.shape[1],
+                                   weights=[word_embedding_weights],
+                                   trainable=True,
+                                   name='WordEmbedding')
+        premise_word_embedding    = word_embedding(premise_word_input)
+        hypothesis_word_embedding = word_embedding(hypothesis_word_input)
 
-    # 2. Character input
-    premise_char_input    = Input(shape=(p, char_pad_size,))
-    hypothesis_char_input = Input(shape=(h, char_pad_size,))
+        dropout = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
+                                  decay_interval=dropout_decay_interval,
+                                  decay_rate=dropout_decay_rate)
+        premise_word_embedding    = dropout(premise_word_embedding)
+        hypothesis_word_embedding = dropout(hypothesis_word_embedding)
 
-    # Share weights of character-level embedding for premise and hypothesis
-    character_embedding_layer = TimeDistributed(Sequential([
-        Embedding(input_dim=128, output_dim=char_embedding_size, input_length=char_pad_size),
-        Conv1D(filters=40, kernel_size=3),
-        GlobalMaxPooling1D()
-    ]))
-    character_embedding_layer.build(input_shape=(None, None, char_pad_size))
-    premise_char_embedding    = character_embedding_layer(premise_char_input)
-    hypothesis_char_embedding = character_embedding_layer(hypothesis_char_input)
+        # 2. Character input
+        premise_char_input    = Input(shape=(p, char_pad_size,))
+        hypothesis_char_input = Input(shape=(h, char_pad_size,))
 
-    # 3. Syntactical features
-    premise_syntactical_input    = Input(shape=(p, syntactical_feature_size,))
-    hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,))
+        # Share weights of character-level embedding for premise and hypothesis
+        character_embedding_layer = TimeDistributed(Sequential([
+            Embedding(input_dim=128, output_dim=char_embedding_size, input_length=char_pad_size),
+            Conv1D(filters=40, kernel_size=3),
+            GlobalMaxPooling1D()
+        ]))
+        character_embedding_layer.build(input_shape=(None, None, char_pad_size))
+        premise_char_embedding    = character_embedding_layer(premise_char_input)
+        hypothesis_char_embedding = character_embedding_layer(hypothesis_char_input)
 
-    # Concatenate all features
-    premise_embedding    = Concatenate()([premise_word_embedding,    premise_char_embedding,    premise_syntactical_input])
-    hypothesis_embedding = Concatenate()([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
-    d = K.int_shape(hypothesis_embedding)[-1]
+        # 3. Syntactical features
+        premise_syntactical_input    = Input(shape=(p, syntactical_feature_size,))
+        hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,))
 
-    '''Encoding layer'''
-    # --Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]--
-    premise_encoding    = Encoding(d=d, name='PremiseEncoding')(premise_embedding)
-    hypothesis_encoding = Encoding(d=d, name='HypothesisEncoding')(hypothesis_embedding)
+        # Concatenate all features
+        premise_embedding    = Concatenate()([premise_word_embedding, premise_char_embedding, premise_syntactical_input])
+        hypothesis_embedding = Concatenate()([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
+        d = K.int_shape(hypothesis_embedding)[-1]
 
-    '''Interaction layer'''
-    interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
+        '''Encoding layer'''
+        # --Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]--
+        premise_encoding    = Encoding(d=d, name='PremiseEncoding')(premise_embedding)
+        hypothesis_encoding = Encoding(d=d, name='HypothesisEncoding')(hypothesis_embedding)
 
-    '''Feature Extraction layer'''
-    feature_layers = int(d * FSDR)
-    feature_extractor_input = Conv2D(filters=feature_layers, kernel_size=1, activation=None)(interaction)
-    feature_extractor = get_densenet_output(include_top=False,
-                                            weights=None,
-                                            input_tensor=feature_extractor_input,
-                                            nb_dense_block=3,
-                                            nb_layers_per_block=n,
-                                            compression=TSDR,
-                                            growth_rate=GR)
+        '''Interaction layer'''
+        interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
 
-    '''Output layer'''
-    features = DecayingDropout(decay_interval=10000, decay_rate=0.977)(feature_extractor)
-    out = Dense(units=3, activation='softmax', name='Output')(features)
+        '''Feature Extraction layer'''
+        feature_layers = int(d * FSDR)
+        feature_extractor_input = Conv2D(filters=feature_layers, kernel_size=1, activation=None)(interaction)
+        feature_extractor = get_densenet_output(include_top=False,
+                                                weights=None,
+                                                input_tensor=feature_extractor_input,
+                                                nb_dense_block=nb_dense_blocks,
+                                                nb_layers_per_block=n,
+                                                compression=TSDR,
+                                                growth_rate=GR)
 
-    return Model(inputs=[premise_word_input,    premise_char_input,    premise_syntactical_input,
-                         hypothesis_word_input, hypothesis_char_input, hypothesis_syntactical_input],
-                 outputs=out,
-                 name='DIIN')
+        '''Output layer'''
+        features = dropout(feature_extractor)
+        out = Dense(units=3, activation='softmax', name='Output')(features)
+        super(DIIN, self).__init__(inputs=[premise_word_input,    premise_char_input,    premise_syntactical_input,
+                                           hypothesis_word_input, hypothesis_char_input, hypothesis_syntactical_input],
+                                   outputs=out,
+                                   name=name)

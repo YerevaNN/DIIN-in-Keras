@@ -8,7 +8,7 @@ import numpy as np
 from keras.callbacks import TensorBoard
 from tqdm import tqdm
 
-from model import construct_model
+from model import DIIN
 from optimizers.adadelta import AdadeltaL2
 from optimizers.sgd import SGDL2
 from util import ChunkDataManager
@@ -24,7 +24,7 @@ def train(model,
           optimizer_switch_step=30000,
           epochs=30,
           batch_size=70,
-          tensorboard=TensorBoard(),
+          logger=TensorBoard(),
           shuffle=True):
 
     print('train:\t', [d.shape for d in train_data])
@@ -37,7 +37,7 @@ def train(model,
 
     step, no_progress_steps = 0, 0
     best_loss = 1000.
-    tensorboard.set_model(model)
+    logger.set_model(model)
 
     # Start training
     for epoch in range(epochs):
@@ -49,8 +49,8 @@ def train(model,
         # Log results to tensorboard and save the model
         [test_loss, test_acc] = model.evaluate(test_data[:-1], test_data[-1], batch_size=batch_size)
         [dev_loss,  dev_acc]  = model.evaluate(dev_data[:-1],  dev_data[-1],  batch_size=batch_size)
-        tensorboard.on_epoch_end(epoch=epoch, logs={'test_acc': test_acc, 'test_loss': test_loss})
-        tensorboard.on_epoch_end(epoch=epoch, logs={'dev_acc': dev_acc,   'dev_loss': dev_loss})
+        logger.on_epoch_end(epoch=epoch, logs={'test_acc': test_acc, 'test_loss': test_loss})
+        logger.on_epoch_end(epoch=epoch, logs={'dev_acc': dev_acc,   'dev_loss': dev_loss})
         model.save(filepath=models_save_dir + 'epoch={}-tloss={}-tacc={}.model'.format(epoch, test_loss, test_acc))
 
         # Switch optimizer if it's necessary
@@ -71,10 +71,10 @@ def train(model,
         for batch in tqdm(range(0, len(train_data[0]), batch_size)):
             [loss, acc] = model.train_on_batch([train_input[batch: batch+batch_size] for train_input in train_inputs],
                                                train_labels[batch: batch+batch_size])
-            tensorboard.on_epoch_end(epoch=step, logs={'acc': acc, 'loss': loss})
+            logger.on_epoch_end(epoch=step, logs={'acc': acc, 'loss': loss})
             step += 1
 
-    tensorboard.on_train_end('Good Bye!')
+    logger.on_train_end('Good Bye!')
 
 
 if __name__ == '__main__':
@@ -84,14 +84,20 @@ if __name__ == '__main__':
     test_data  = ChunkDataManager(load_data_path='data/test',  save_data_path=None).load()
     dev_data   = ChunkDataManager(load_data_path='data/dev',   save_data_path=None).load()
 
+    ''' Getting dimensions of the input '''
+    char_pad_size = train_data[1].shape[-1]
+    syntactical_feature_size = train_data[2].shape[-1]
+    assert char_pad_size == train_data[4].shape[-1]
+    assert syntactical_feature_size == train_data[5].shape[-1]
+
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)
     sgd = SGDL2(lr=3e-4)
-    model = construct_model(p=32,
-                            h=32,
-                            word_embedding_weights=word_embedding_weights,
-                            char_pad_size=14,
-                            syntactical_feature_size=48,
-                            char_embedding_size=55)
+    model = DIIN(p=train_data[0].shape[-1],  # or None
+                 h=train_data[3].shape[-1],  # or None
+                 word_embedding_weights=word_embedding_weights,
+                 char_pad_size=char_pad_size,
+                 syntactical_feature_size=syntactical_feature_size,
+                 char_embedding_size=55)
 
     # Prepare directory for models
     models_save_dir = './models/'
@@ -105,7 +111,7 @@ if __name__ == '__main__':
 
     board = TensorBoard(log_dir=tensorboard_dir)
     train(model=model,
-          epochs=20,
+          epochs=33,
           train_data=train_data,
           test_data=test_data,
           dev_data=dev_data,
@@ -113,4 +119,4 @@ if __name__ == '__main__':
           secondary_optimizer=sgd,
           optimizer_switch_step=2,
           models_save_dir=models_save_dir,
-          tensorboard=board)
+          logger=board)

@@ -198,7 +198,7 @@ class BasePreprocessor(object):
         hypothesis_chars = []
         for word in premise_words:     premise_chars.append(   [self.char_to_id[c] for c in word])
         for word in hypothesis_words:  hypothesis_chars.append([self.char_to_id[c] for c in word])
-        premise_chars    = pad_sequences(premise_chars, maxlen=chars_per_word, padding='post', truncating='post')
+        premise_chars    = pad_sequences(premise_chars,    maxlen=chars_per_word, padding='post', truncating='post')
         hypothesis_chars = pad_sequences(hypothesis_chars, maxlen=chars_per_word, padding='post', truncating='post')
 
         return (np.array(premise_word_ids),    pad(premise_chars,    maxlen), pad(syntactical_premise,    maxlen),
@@ -219,7 +219,7 @@ class BasePreprocessor(object):
         data = self.load_data(input_file_path)
         for sample in tqdm(data):
             # As stated in paper: The labels are "entailment", "neutral", "contradiction" and "-".
-            # "-"  shows that annotators cannot reach consensus with each other, thus removed during training and testing
+            # "-"  shows that annotators can't reach consensus with each other, thus removed during training and testing
             label = self.get_label(sample=sample)
             if label == '-':
                 continue
