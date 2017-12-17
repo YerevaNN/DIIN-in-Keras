@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import io
 import json
 
 import numpy as np
@@ -86,7 +87,7 @@ class BasePreprocessor(object):
         self.word_to_id = {}
         self.vectors = []
 
-        with open(vectors_file_path, 'r', encoding='utf-8') as f:
+        with io.open(vectors_file_path, mode='r', encoding='utf-8') as f:
             for line in tqdm(f):
                 values = line.split(' ')
                 word = values[0]
@@ -217,8 +218,8 @@ class BasePreprocessor(object):
 
         data = self.load_data(input_file_path)
         for sample in tqdm(data):
-            # As stated in paper: The labels provided in are “entailment”, “neutral’, “contradiction” and “-”.
-            # “-”  shows that annotators cannot reach consensus with each other, thus removed during training and testing
+            # As stated in paper: The labels are "entailment", "neutral", "contradiction" and "-".
+            # "-"  shows that annotators cannot reach consensus with each other, thus removed during training and testing
             label = self.get_label(sample=sample)
             if label == '-':
                 continue
