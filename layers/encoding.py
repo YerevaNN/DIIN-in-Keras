@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from keras import backend as K
 from keras.activations import softmax
 from keras.engine.topology import Layer
