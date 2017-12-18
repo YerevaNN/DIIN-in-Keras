@@ -71,8 +71,8 @@ class ChunkDataManager(object):
 def broadcast_last_axis(x):
     """
     :param x tensor of shape (batch, a, b)
-     :returns broadcasted tensor of shape (batch, a, b, a)
+    :returns broadcasted tensor of shape (batch, a, b, a)
     """
-    y = K.expand_dims(x, 1)
+    y = K.expand_dims(x, 1) * 0
     y = K.permute_dimensions(y, (0, 1, 3, 2))
-    return (K.expand_dims(x) + y) / 2
+    return y + K.expand_dims(x)
