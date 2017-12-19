@@ -159,11 +159,12 @@ class BasePreprocessor(object):
                 return res
         raise ValueError('Illegal label provided')
 
-    def parse_one(self, premise, hypothesis, maxlen, chars_per_word):
+    def parse_one(self, premise, hypothesis, max_words_p, max_words_h, chars_per_word):
         """
         :param premise: sentence
         :param hypothesis: sentence
-        :param maxlen: maximum length of words to allow
+        :param max_words_p: maximum number of words in premise
+        :param max_words_h: maximum number of words in hypothesis
         :param chars_per_word: number of chars in each word
         :return: (premise_word_ids,    premise_chars,    syntactical_premise,
                   hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
@@ -201,14 +202,15 @@ class BasePreprocessor(object):
         premise_chars    = pad_sequences(premise_chars,    maxlen=chars_per_word, padding='post', truncating='post')
         hypothesis_chars = pad_sequences(hypothesis_chars, maxlen=chars_per_word, padding='post', truncating='post')
 
-        return (np.array(premise_word_ids),    pad(premise_chars,    maxlen), pad(syntactical_premise,    maxlen),
-                np.array(hypothesis_word_ids), pad(hypothesis_chars, maxlen), pad(syntactical_hypothesis, maxlen))
+        return (np.array(premise_word_ids),    pad(premise_chars, max_words_p),    pad(syntactical_premise, max_words_p),
+                np.array(hypothesis_word_ids), pad(hypothesis_chars, max_words_h), pad(syntactical_hypothesis, max_words_h))
 
-    def parse(self, input_file_path, data_saver, max_words=32, chars_per_word=14):
+    def parse(self, input_file_path, data_saver, max_words_p=33, max_words_h=20, chars_per_word=13):
         """
         :param input_file_path: file to parse data from
         :param data_saver: manager for saving results
-        :param max_words: number of maximum words in a sentence
+        :param max_words_p: maximum number of words in premise
+        :param max_words_h: maximum number of words in hypothesis
         :param chars_per_word: number of chars in each word (padding is applied if not enough)
         :return: (premise_word_ids,    premise_chars,    syntactical_premise,
                   hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
@@ -224,7 +226,9 @@ class BasePreprocessor(object):
             if label == '-':
                 continue
             premise, hypothesis = self.get_sentences(sample=sample)
-            sample_inputs = self.parse_one(premise, hypothesis, maxlen=max_words, chars_per_word=chars_per_word)
+            sample_inputs = self.parse_one(premise, hypothesis,
+                                           max_words_h=max_words_h, max_words_p=max_words_p,
+                                           chars_per_word=chars_per_word)
             label = self.label_to_one_hot(label=label)
 
             sample_result = list(sample_inputs)
@@ -232,8 +236,8 @@ class BasePreprocessor(object):
             for res_item, parsed_item in zip(res, sample_result):
                 res_item.append(parsed_item)
 
-        res[0] = pad_sequences(res[0], maxlen=max_words, padding='post', truncating='post', value=0.)  # Word input
-        res[3] = pad_sequences(res[3], maxlen=max_words, padding='post', truncating='post', value=0.)  # Word input
+        res[0] = pad_sequences(res[0], maxlen=max_words_p, padding='post', truncating='post', value=0.)  # input_word_p
+        res[3] = pad_sequences(res[3], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # input_word_h
         res = (np.array(item) for item in res)
         data_saver.save(res)
         return res

@@ -73,7 +73,7 @@ class DIIN(Model):
         # Share weights of character-level embedding for premise and hypothesis
         character_embedding_layer = TimeDistributed(Sequential([
             Embedding(input_dim=128, output_dim=char_embedding_size, input_length=char_pad_size),
-            Conv1D(filters=40, kernel_size=3),
+            Conv1D(filters=77, kernel_size=3),
             GlobalMaxPooling1D()
         ]))
         character_embedding_layer.build(input_shape=(None, None, char_pad_size))
@@ -98,8 +98,7 @@ class DIIN(Model):
         interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
 
         '''Feature Extraction layer'''
-        feature_layers = int(d * FSDR)
-        feature_extractor_input = Conv2D(filters=feature_layers, kernel_size=1, activation=None)(interaction)
+        feature_extractor_input = Conv2D(filters=int(d * FSDR), kernel_size=1, activation=None)(interaction)
         feature_extractor = get_densenet_output(include_top=False,
                                                 weights=None,
                                                 input_tensor=feature_extractor_input,
