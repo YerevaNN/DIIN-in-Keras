@@ -46,7 +46,7 @@ def get_word2vec_file_path():
 
 
 class ChunkDataManager(object):
-    def __init__(self, load_data_path, save_data_path):
+    def __init__(self, load_data_path=None, save_data_path=None):
         self.load_data_path = load_data_path
         self.save_data_path = save_data_path
 

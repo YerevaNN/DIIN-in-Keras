@@ -15,7 +15,7 @@ class DIIN(Model):
                  h,
                  word_embedding_weights,
                  char_embedding_size=30,
-                 char_pad_size=14,
+                 chars_per_word=14,
                  syntactical_feature_size=50,
                  dropout_decay_interval=10000,
                  dropout_decay_rate=0.977,
@@ -35,7 +35,7 @@ class DIIN(Model):
         :param h: sequence length of hypothesis
         :param word_embedding_weights: matrix of weights for word embeddings (GloVe pre-trained vectors)
         :param char_embedding_size: input size of the character-embedding layer
-        :param char_pad_size: length of the padding size for each word
+        :param chars_per_word: length of the padding size for each word
         :param syntactical_feature_size: size of the syntactical feature vector for each word
         :param dropout_initial_keep_rate: initial state of dropout
         :param dropout_decay_rate: how much to change dropout at each interval
@@ -71,16 +71,16 @@ class DIIN(Model):
         hypothesis_word_embedding = dropout(hypothesis_word_embedding)
 
         # 2. Character input
-        premise_char_input    = Input(shape=(p, char_pad_size,))
-        hypothesis_char_input = Input(shape=(h, char_pad_size,))
+        premise_char_input    = Input(shape=(p, chars_per_word,))
+        hypothesis_char_input = Input(shape=(h, chars_per_word,))
 
         # Share weights of character-level embedding for premise and hypothesis
         character_embedding_layer = TimeDistributed(Sequential([
-            Embedding(input_dim=128, output_dim=char_embedding_size, input_length=char_pad_size),
+            Embedding(input_dim=128, output_dim=char_embedding_size, input_length=chars_per_word),
             Conv1D(filters=char_conv_filters, kernel_size=3),
             GlobalMaxPooling1D()
         ]))
-        character_embedding_layer.build(input_shape=(None, None, char_pad_size))
+        character_embedding_layer.build(input_shape=(None, None, chars_per_word))
         premise_char_embedding    = character_embedding_layer(premise_char_input)
         hypothesis_char_embedding = character_embedding_layer(hypothesis_char_input)
 

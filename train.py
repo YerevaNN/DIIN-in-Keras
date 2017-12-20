@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import argparse
 import os
 import random
 import shutil
@@ -20,11 +21,11 @@ def train(model,
           dev_data,
           initial_optimizer,
           secondary_optimizer,
-          models_save_dir='./models/',
+          logger,
+          models_save_dir,
           optimizer_switch_step=30000,
           epochs=30,
           batch_size=70,
-          logger=TensorBoard(),
           shuffle=True):
 
     print('train:\t', [d.shape for d in train_data])
@@ -79,34 +80,46 @@ def train(model,
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--batch_size',         default=70, help='Batch size',                              type=int)
+    parser.add_argument('--optimizer_switch',   default=1,  help='Switch step of optimizer',                type=int)
+    parser.add_argument('--char_embed_size',    default=47, help='Size of character embedding',             type=int)
+    parser.add_argument('--char_conv_filters',  default=77, help='Number of character conv filters',        type=int)
+    parser.add_argument('--load_dir',           default='data',             help='Directory of the data',   type=str)
+    parser.add_argument('--models_dir',         default='models/',          help='Where to save models',    type=str)
+    parser.add_argument('--logdir',             default='logs',             help='Tensorboard logs dir',    type=str)
+    parser.add_argument('--word_vec_path', default='data/word-vectors.npy', help='Save path word vectors',  type=str)
+    args = parser.parse_args()
 
-    word_embedding_weights = np.load('data/word-vectors.npy')
-    train_data = ChunkDataManager(load_data_path='data/train', save_data_path=None).load()
-    test_data  = ChunkDataManager(load_data_path='data/test',  save_data_path=None).load()
-    dev_data   = ChunkDataManager(load_data_path='data/dev',   save_data_path=None).load()
+    ''' Prepare data '''
+    word_embedding_weights = np.load(args.word_vec_path)
+    train_data = ChunkDataManager(load_data_path=os.path.join(args.load_dir, 'train')).load()
+    test_data  = ChunkDataManager(load_data_path=os.path.join(args.load_dir, 'test')).load()
+    dev_data   = ChunkDataManager(load_data_path=os.path.join(args.load_dir, 'dev')).load()
 
     ''' Getting dimensions of the input '''
-    char_pad_size = train_data[1].shape[-1]
+    chars_per_word = train_data[1].shape[-1]
     syntactical_feature_size = train_data[2].shape[-1]
-    assert char_pad_size == train_data[4].shape[-1]
+    assert chars_per_word == train_data[4].shape[-1]
     assert syntactical_feature_size == train_data[5].shape[-1]
 
+    ''' Prepare the model and optimizers '''
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)
     sgd = SGDL2(lr=3e-4)
     model = DIIN(p=train_data[0].shape[-1],  # or None
                  h=train_data[3].shape[-1],  # or None
                  word_embedding_weights=word_embedding_weights,
-                 char_pad_size=char_pad_size,
+                 chars_per_word=chars_per_word,
                  syntactical_feature_size=syntactical_feature_size,
-                 char_embedding_size=47)
+                 char_embedding_size=args.char_embed_size,
+                 char_conv_filters=args.char_conv_filters)
 
     # Prepare directory for models
-    models_save_dir = './models/'
-    if not os.path.exists(models_save_dir):
-        os.mkdir(models_save_dir)
+    if not os.path.exists(args.models_dir):
+        os.mkdir(args.models_dir)
 
     # Clean-up tensorboard dir if necessary
-    tensorboard_dir = './logs'
+    tensorboard_dir = args.logdir
     if os.path.exists(tensorboard_dir):
         shutil.rmtree(tensorboard_dir, ignore_errors=True)
 
@@ -118,6 +131,7 @@ if __name__ == '__main__':
           dev_data=dev_data,
           initial_optimizer=adadelta,
           secondary_optimizer=sgd,
-          optimizer_switch_step=1,
-          models_save_dir=models_save_dir,
+          batch_size=args.batch_size,
+          optimizer_switch_step=args.optimizer_switch,
+          models_save_dir=args.models_dir,
           logger=board)

@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import argparse
 import io
 import json
 
@@ -184,13 +185,13 @@ class BasePreprocessor(object):
         syntactical_premise = []
         syntactical_hypothesis = []
         for word, hot in zip(premise_words, premise_hot):
-            l = list(hot)
-            l.append(word in hypothesis_words)
-            syntactical_premise.append(np.array(l))
+            l_hot = list(hot)
+            l_hot.append(word in hypothesis_words)
+            syntactical_premise.append(np.array(l_hot))
         for word, hot in zip(hypothesis_words, hypothesis_hot):
-            l = list(hot)
-            l.append(word in premise_words)
-            syntactical_hypothesis.append(np.array(l))
+            l_hot = list(hot)
+            l_hot.append(word in premise_words)
+            syntactical_hypothesis.append(np.array(l_hot))
         syntactical_premise    = np.array(syntactical_premise)
         syntactical_hypothesis = np.array(syntactical_hypothesis)
 
@@ -265,19 +266,42 @@ class SNLIPreprocessor(BasePreprocessor):
         return 'entailment', 'contradiction', 'neutral'
 
 
+def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths, word_vector_save_path):
+    preprocessor.get_all_words_with_parts_of_speech([data_path[1] for data_path in data_paths])
+    print('Found', len(preprocessor.unique_words), 'unique words')
+    print('Found', len(preprocessor.unique_parts_of_speech), 'unique parts of speech')
+
+    preprocessor.init_mappings()
+    preprocessor.save_word_vectors(word_vector_save_path)
+    for dataset, input_path in data_paths:
+        preprocessor.parse(input_file_path=input_path,
+                           data_saver=ChunkDataManager(save_data_path=save_dir + dataset),
+                           max_words_p=p,
+                           max_words_h=h,
+                           chars_per_word=chars_per_word)
+
+
 if __name__ == '__main__':
-    snli_preprocessor = SNLIPreprocessor()
-    path = get_snli_file_path()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--p',              default=33,         help='Maximum words in premise',            type=int)
+    parser.add_argument('--h',              default=20,         help='Maximum words in hypothesis',         type=int)
+    parser.add_argument('--chars_per_word', default=13,         help='Number of characters in one word',    type=int)
+    parser.add_argument('--save_dir',       default='data/',    help='Save directory of data',              type=str)
+    parser.add_argument('--dataset',        default='snli',     help='Which preprocessor to use',           type=str)
+    parser.add_argument('--word_vec_path',  default='data/word-vectors.npy', help='Save path word vectors', type=str)
+    args = parser.parse_args()
 
-    train_path = path + 'snli_1.0_train.jsonl'
-    test_path  = path + 'snli_1.0_test.jsonl'
-    dev_path   = path + 'snli_1.0_dev.jsonl'
+    if args.dataset == 'snli':
+        snli_preprocessor = SNLIPreprocessor()
+        path = get_snli_file_path()
+        train_path = path + 'snli_1.0_train.jsonl'
+        test_path  = path + 'snli_1.0_test.jsonl'
+        dev_path   = path + 'snli_1.0_dev.jsonl'
 
-    snli_preprocessor.get_all_words_with_parts_of_speech([train_path, test_path, dev_path])
-    print('Found', len(snli_preprocessor.unique_words), 'unique words')
-    print('Found', len(snli_preprocessor.unique_parts_of_speech), 'unique parts of speech')
-    snli_preprocessor.init_mappings()
-    snli_preprocessor.save_word_vectors('data/word-vectors.npy')
-    snli_preprocessor.parse(dev_path,   ChunkDataManager(load_data_path='data/dev',   save_data_path='data/dev'))
-    snli_preprocessor.parse(train_path, ChunkDataManager(load_data_path='data/train', save_data_path='data/train'))
-    snli_preprocessor.parse(test_path,  ChunkDataManager(load_data_path='data/test',  save_data_path='data/test'))
+        preprocess(p=args.p, h=args.h, chars_per_word=args.chars_per_word,
+                   preprocessor=snli_preprocessor,
+                   save_dir=args.save_dir,
+                   data_paths=[('train', train_path), ('test', test_path), ('dev', dev_path)],
+                   word_vector_save_path=args.word_vec_path)
+    else:
+        raise ValueError('couldn\'t find implementation for specified dataset')
