@@ -34,6 +34,7 @@ def train(model,
     model.compile(optimizer=initial_optimizer,
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
+    model.summary()
 
     step, no_progress_steps = 0, 0
     best_loss = 1000.
@@ -92,8 +93,8 @@ if __name__ == '__main__':
 
     adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)
     sgd = SGDL2(lr=3e-4)
-    model = DIIN(p=None,  # or train_data[0].shape[-1]
-                 h=None,  # or train_data[3].shape[-1]
+    model = DIIN(p=train_data[0].shape[-1],  # or None
+                 h=train_data[3].shape[-1],  # or None
                  word_embedding_weights=word_embedding_weights,
                  char_pad_size=char_pad_size,
                  syntactical_feature_size=syntactical_feature_size,

@@ -21,33 +21,33 @@ class Encoding(Layer):
     def build(self, input_shape):
         self.w_itr_att = self.add_weight(name='w_itr_att',
                                          shape=(3 * self.d,),
-                                         initializer='uniform',
+                                         initializer='he_normal',
                                          trainable=True)
 
         self.w1 = self.add_weight(name='W1',
                                   shape=(2 * self.d, self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
         self.w2 = self.add_weight(name='W2',
                                   shape=(2 * self.d, self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
         self.w3 = self.add_weight(name='W3',
                                   shape=(2 * self.d, self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
 
         self.b1 = self.add_weight(name='b1',
                                   shape=(self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
         self.b2 = self.add_weight(name='b2',
                                   shape=(self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
         self.b3 = self.add_weight(name='b3',
                                   shape=(self.d,),
-                                  initializer='uniform',
+                                  initializer='he_normal',
                                   trainable=True)
 
         # Add parameters for weights to penalize difference between them
@@ -112,14 +112,10 @@ class Encoding(Layer):
         # For every slice(i) the up part changes its P[i] values
         # The middle part is repeated p times in depth (for every i)
         # So we can get the middle part by doing the following:
-        # mid = broadcast(P.transpose, shape=(p, p, 3*d, p))
+        # mid = broadcast(P) -> to get tensor of shape (batch, p, d, p)
         # As we can notice up is the same mid, but with changed axis, so to obtain up from mid we can do:
         # up = swap_axes(mid, axis1=0, axis2=2)
 
-        # P.shape            = (batch, p, d)
-        # P_transposed.shape = (batch, d, p)
-        # mid = broadcast_to(P_transposed, shape=(p, d, p))
-        # up  = permute_dimensions(up, shape=(2, 1, 0))
         ''' Alpha '''
         mid = broadcast_last_axis(P)                            # (batch, p, d, p)
         up = K.permute_dimensions(mid, pattern=(0, 3, 2, 1))    # (batch, p, d, p)
@@ -133,12 +129,11 @@ class Encoding(Layer):
         # So P_itr_attn is the weighted sum of P
         # SA is column-wise soft-max applied on A
         # P_itr_attn[i] is the sum of all rows of P scaled by i-th row of SA
-        SA = softmax(A, axis=2)  # Apply column-wise soft-max
-        # Expanding the form to vector/matrix form we can obtain that P_itr_attn is just the dot( SA, P )
-        itr_attn = K.batch_dot(SA, P)  # itr_attn: (batch, p, d)
+        SA = softmax(A, axis=2)        # (batch, p, p)
+        itr_attn = K.batch_dot(SA, P)  # (batch, p, d)
 
         ''' Fuse gate '''
-        P_concat = K.concatenate([P, itr_attn], axis=2)     # P_concat is of shape (batch, p, 2d)
+        P_concat = K.concatenate([P, itr_attn], axis=2)     # (batch, p, 2d)
         z = K.tanh(K.dot(P_concat, self.w1) + self.b1)      # (batch, p, d)
         r = K.sigmoid(K.dot(P_concat, self.w2) + self.b2)   # (batch, p, d)
         f = K.sigmoid(K.dot(P_concat, self.w3) + self.b3)   # (batch, p, d)

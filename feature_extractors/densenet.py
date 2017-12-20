@@ -9,7 +9,7 @@ from __future__ import print_function
 
 import keras.backend as K
 from keras.applications.imagenet_utils import _obtain_input_shape
-from keras.layers import Input
+from keras.layers import Input, Flatten
 from keras.layers.convolutional import Conv2D
 from keras.layers.core import Dense, Dropout, Activation
 from keras.layers.merge import concatenate
@@ -278,9 +278,11 @@ def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_bl
     if apply_batch_norm:
         x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(x)
     x = Activation('relu')(x)
-    x = GlobalAveragePooling2D()(x)
+
+    # Flatten if the shapes are known otherwise apply average pooling
+    try:        x = Flatten()(x)
+    except:     x = GlobalAveragePooling2D()(x)
 
     if include_top:
         x = Dense(nb_classes, activation=activation)(x)
-
     return x
