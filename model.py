@@ -20,11 +20,13 @@ class DIIN(Model):
                  dropout_decay_interval=10000,
                  dropout_decay_rate=0.977,
                  dropout_initial_keep_rate=1.,
+                 char_conv_filters=77,
                  FSDR=0.3,
                  TSDR=0.5,
                  GR=20,
                  n=8,
                  nb_dense_blocks=3,
+                 nb_labels=3,
                  name='DIIN'):
         """
         :ref https://openreview.net/forum?id=r1dHXnH6-&noteId=r1dHXnH6-
@@ -38,11 +40,13 @@ class DIIN(Model):
         :param dropout_initial_keep_rate: initial state of dropout
         :param dropout_decay_rate: how much to change dropout at each interval
         :param dropout_decay_interval: how much time to wait for the next update
+        :param char_conv_filters: number of conv-filters applied on character embedding
         :param FSDR: first scale down ratio in densenet
         :param TSDR: transition scale down ratio in densenet
         :param GR: growing rate in densenet
         :param n: number of layers in one dense-block
-        :param nb_dense_blocks:
+        :param nb_dense_blocks: number of dense blocks in densenet
+        :param nb_labels: number of labels
         """
 
         '''Embedding layer'''
@@ -73,7 +77,7 @@ class DIIN(Model):
         # Share weights of character-level embedding for premise and hypothesis
         character_embedding_layer = TimeDistributed(Sequential([
             Embedding(input_dim=128, output_dim=char_embedding_size, input_length=char_pad_size),
-            Conv1D(filters=77, kernel_size=3),
+            Conv1D(filters=char_conv_filters, kernel_size=3),
             GlobalMaxPooling1D()
         ]))
         character_embedding_layer.build(input_shape=(None, None, char_pad_size))
@@ -85,7 +89,7 @@ class DIIN(Model):
         hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,))
 
         # Concatenate all features
-        premise_embedding    = Concatenate()([premise_word_embedding, premise_char_embedding, premise_syntactical_input])
+        premise_embedding    = Concatenate()([premise_word_embedding,    premise_char_embedding,    premise_syntactical_input])
         hypothesis_embedding = Concatenate()([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
         d = K.int_shape(hypothesis_embedding)[-1]
 
@@ -109,7 +113,7 @@ class DIIN(Model):
 
         '''Output layer'''
         features = dropout(feature_extractor)
-        out = Dense(units=3, activation='softmax', name='Output')(features)
+        out = Dense(units=nb_labels, activation='softmax', name='Output')(features)
         super(DIIN, self).__init__(inputs=[premise_word_input,    premise_char_input,    premise_syntactical_input,
                                            hypothesis_word_input, hypothesis_char_input, hypothesis_syntactical_input],
                                    outputs=out,
