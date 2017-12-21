@@ -1,4 +1,3 @@
 tqdm
 keras
 numpy
-tensorflow
