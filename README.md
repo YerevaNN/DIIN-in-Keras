@@ -18,7 +18,7 @@ Custom optimizers `AdadeltaL2` and `SGDL2` are implemented in `optimizers/`.
 
 ### Instructions
 
-Our code is compatible with both `python3` and `python2` so for all commands listed below python can be substituted
+Our code is compatible with both `python3` and `python2` so for all commands listed below `python` can be substituted
 by `python3`.
 
 * Install requirements (`pip3` for `python3`)

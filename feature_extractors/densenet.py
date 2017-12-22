@@ -130,13 +130,13 @@ def __conv_block(ip, nb_filter, bottleneck=False, dropout_rate=None, weight_deca
     if bottleneck:
         inter_channel = nb_filter * 4  # Obtained from https://github.com/liuzhuang13/DenseNet/blob/master/densenet.lua
 
-        x = Conv2D(inter_channel, (1, 1), kernel_initializer='he_normal', padding='same', use_bias=False,
+        x = Conv2D(inter_channel, (1, 1), padding='same', use_bias=False,
                    kernel_regularizer=l2(weight_decay))(x)
         if apply_batch_norm:
             x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(x)
         x = Activation('relu')(x)
 
-    x = Conv2D(nb_filter, (3, 3), kernel_initializer='he_normal', padding='same', use_bias=False)(x)
+    x = Conv2D(nb_filter, (3, 3), padding='same', use_bias=False)(x)
     if dropout_rate:
         x = Dropout(dropout_rate)(x)
 
@@ -192,7 +192,7 @@ def __transition_block(ip, nb_filter, compression=1.0, weight_decay=1e-4, apply_
     if apply_batch_norm:  x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(ip)
     else:                 x = ip
     x = Activation('relu')(x)
-    x = Conv2D(int(nb_filter * compression), (1, 1), kernel_initializer='he_normal', padding='same', use_bias=False,
+    x = Conv2D(int(nb_filter * compression), (1, 1), padding='same', use_bias=False,
                kernel_regularizer=l2(weight_decay))(x)
     # Original paper of dense-net uses AveragePooling, but DIIN makes use of MaxPooling with stride 2x2
     x = MaxPooling2D(strides=(2, 2))(x)

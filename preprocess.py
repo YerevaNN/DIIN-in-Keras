@@ -3,6 +3,7 @@ from __future__ import print_function
 import argparse
 import io
 import json
+import os
 
 import numpy as np
 from keras.preprocessing.sequence import pad_sequences
@@ -275,7 +276,7 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths, word_ve
     preprocessor.save_word_vectors(word_vector_save_path)
     for dataset, input_path in data_paths:
         preprocessor.parse(input_file_path=input_path,
-                           data_saver=ChunkDataManager(save_data_path=save_dir + dataset),
+                           data_saver=ChunkDataManager(save_data_path=os.path.join(save_dir, dataset)),
                            max_words_p=p,
                            max_words_h=h,
                            chars_per_word=chars_per_word)
@@ -283,9 +284,9 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths, word_ve
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--p',              default=33,         help='Maximum words in premise',            type=int)
-    parser.add_argument('--h',              default=20,         help='Maximum words in hypothesis',         type=int)
-    parser.add_argument('--chars_per_word', default=13,         help='Number of characters in one word',    type=int)
+    parser.add_argument('--p',              default=32,         help='Maximum words in premise',            type=int)
+    parser.add_argument('--h',              default=32,         help='Maximum words in hypothesis',         type=int)
+    parser.add_argument('--chars_per_word', default=16,         help='Number of characters in one word',    type=int)
     parser.add_argument('--save_dir',       default='data/',    help='Save directory of data',              type=str)
     parser.add_argument('--dataset',        default='snli',     help='Which preprocessor to use',           type=str)
     parser.add_argument('--word_vec_path',  default='data/word-vectors.npy', help='Save path word vectors', type=str)
