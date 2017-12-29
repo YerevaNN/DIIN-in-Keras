@@ -7,8 +7,9 @@ from util import broadcast_last_axis
 
 
 class Encoding(Layer):
-    def __init__(self, d, **kwargs):
+    def __init__(self, d, dropout, **kwargs):
         self.d = d
+        self.dropout = dropout
         self.w_itr_att = None
         self.w1 = None
         self.w2 = None
@@ -25,9 +26,9 @@ class Encoding(Layer):
         self.w2 = self.add_weight(name='W2', shape=(2 * self.d, self.d,), initializer='glorot_uniform')
         self.w3 = self.add_weight(name='W3', shape=(2 * self.d, self.d,), initializer='glorot_uniform')
 
-        self.b1 = self.add_weight(name='b1', shape=(self.d,), initializer='glorot_uniform')
-        self.b2 = self.add_weight(name='b2', shape=(self.d,), initializer='glorot_uniform')
-        self.b3 = self.add_weight(name='b3', shape=(self.d,), initializer='glorot_uniform')
+        self.b1 = self.add_weight(name='b1', shape=(self.d,), initializer='zeros')
+        self.b2 = self.add_weight(name='b2', shape=(self.d,), initializer='zeros')
+        self.b3 = self.add_weight(name='b3', shape=(self.d,), initializer='zeros')
 
         # Add parameters for weights to penalize difference between them
         # Optimizer will penalize weight difference between all occurrences of the same name
@@ -113,10 +114,11 @@ class Encoding(Layer):
         itr_attn = K.batch_dot(SA, P)  # (batch, p, d)
 
         ''' Fuse gate '''
-        P_concat = K.concatenate([P, itr_attn], axis=2)     # (batch, p, 2d)
-        z = K.tanh(K.dot(P_concat, self.w1) + self.b1)      # (batch, p, d)
-        r = K.sigmoid(K.dot(P_concat, self.w2) + self.b2)   # (batch, p, d)
-        f = K.sigmoid(K.dot(P_concat, self.w3) + self.b3)   # (batch, p, d)
+        # These layers are considered linear in the official implementation, therefore we apply dropout on each input
+        P_concat = K.concatenate([P, itr_attn], axis=2)                     # (batch, p, 2d)
+        z = K.tanh(K.dot(self.dropout(P_concat), self.w1) + self.b1)        # (batch, p, d)
+        r = K.sigmoid(K.dot(self.dropout(P_concat), self.w2) + self.b2)     # (batch, p, d)
+        f = K.sigmoid(K.dot(self.dropout(P_concat), self.w3) + self.b3)     # (batch, p, d)
 
         encoding = r * P + f * z        # (batch, p, d)
         return encoding                 # (batch, p, d)

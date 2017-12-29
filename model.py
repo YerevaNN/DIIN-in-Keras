@@ -97,8 +97,8 @@ class DIIN(Model):
 
         '''Encoding layer'''
         # --Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]--
-        premise_encoding    = Encoding(d=d, name='PremiseEncoding')(premise_embedding)
-        hypothesis_encoding = Encoding(d=d, name='HypothesisEncoding')(hypothesis_embedding)
+        premise_encoding    = Encoding(d=d, dropout=dropout, name='PremiseEncoding')(premise_embedding)
+        hypothesis_encoding = Encoding(d=d, dropout=dropout, name='HypothesisEncoding')(hypothesis_embedding)
 
         '''Interaction layer'''
         interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
