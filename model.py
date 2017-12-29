@@ -21,6 +21,7 @@ class DIIN(Model):
                  dropout_decay_rate=0.977,
                  dropout_initial_keep_rate=1.,
                  char_conv_filters=77,
+                 char_conv_kernel_size=5,
                  FSDR=0.3,
                  TSDR=0.5,
                  GR=20,
@@ -41,6 +42,7 @@ class DIIN(Model):
         :param dropout_decay_rate: how much to change dropout at each interval
         :param dropout_decay_interval: how much time to wait for the next update
         :param char_conv_filters: number of conv-filters applied on character embedding
+        :param char_conv_kernel_size: size of the kernel applied on character embeddings
         :param FSDR: first scale down ratio in densenet
         :param TSDR: transition scale down ratio in densenet
         :param GR: growing rate in densenet
@@ -77,7 +79,7 @@ class DIIN(Model):
         # Share weights of character-level embedding for premise and hypothesis
         character_embedding_layer = TimeDistributed(Sequential([
             Embedding(input_dim=128, output_dim=char_embedding_size, input_length=chars_per_word),
-            Conv1D(filters=char_conv_filters, kernel_size=3),
+            Conv1D(filters=char_conv_filters, kernel_size=char_conv_kernel_size),
             GlobalMaxPooling1D()
         ]))
         character_embedding_layer.build(input_shape=(None, None, chars_per_word))

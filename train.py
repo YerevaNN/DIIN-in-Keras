@@ -83,7 +83,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size',         default=70,     help='Batch size',                          type=int)
     parser.add_argument('--optimizer_switch',   default=1,      help='Switch step of optimizer',            type=int)
-    parser.add_argument('--char_embed_size',    default=55,     help='Size of character embedding',         type=int)
+    parser.add_argument('--char_embed_size',    default=8,      help='Size of character embedding',         type=int)
     parser.add_argument('--char_conv_filters',  default=100,    help='Number of character conv filters',    type=int)
     parser.add_argument('--load_dir',           default='data',             help='Directory of the data',   type=str)
     parser.add_argument('--models_dir',         default='models/',          help='Where to save models',    type=str)
