@@ -16,11 +16,10 @@ from keras.layers.merge import concatenate
 from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import GlobalAveragePooling2D
 from keras.layers.pooling import MaxPooling2D
-from keras.regularizers import l2
 
 
 def get_densenet_output(input_shape=None, depth=40, nb_dense_block=3, growth_rate=12, nb_filter=-1,
-                        nb_layers_per_block=-1, bottleneck=False, compression=1.0, dropout_rate=0.0, weight_decay=1e-4,
+                        nb_layers_per_block=-1, compression=1.0, dropout_rate=0.0,
                         subsample_initial_block=False, include_top=True, weights=None, input_tensor=None,
                         classes=10, activation='softmax', apply_batch_norm=False):
     """Instantiate the DenseNet architecture,
@@ -55,7 +54,6 @@ def get_densenet_output(input_shape=None, depth=40, nb_dense_block=3, growth_rat
             bottleneck: flag to add bottleneck blocks in between dense blocks
             compression: scale down ratio of feature maps.
             dropout_rate: dropout rate
-            weight_decay: weight decay rate
             subsample_initial_block: Set to True to subsample the initial convolution and
                 add a MaxPool2D before the dense blocks are added.
             include_top: whether to include the fully-connected
@@ -104,105 +102,65 @@ def get_densenet_output(input_shape=None, depth=40, nb_dense_block=3, growth_rat
             img_input = input_tensor
 
     x = __create_dense_net(classes, img_input, include_top, depth, nb_dense_block,
-                           growth_rate, nb_filter, nb_layers_per_block, bottleneck, compression,
-                           dropout_rate, weight_decay, subsample_initial_block, activation, apply_batch_norm)
+                           growth_rate, nb_filter, nb_layers_per_block, compression,
+                           dropout_rate, subsample_initial_block, activation, apply_batch_norm)
 
     # return output
     return x
 
 
-def __conv_block(ip, nb_filter, bottleneck=False, dropout_rate=None, weight_decay=1e-4, apply_batch_norm=False):
+def __conv_block(ip, nb_filter, dropout_rate=None, apply_batch_norm=False):
     """ Apply BatchNorm, Relu, 3x3 Conv2D, optional bottleneck block and dropout
     Args:
         ip: Input keras tensor
         nb_filter: number of filters
-        bottleneck: add bottleneck block
         dropout_rate: dropout rate
-        weight_decay: weight decay factor
     Returns: keras tensor with batch_norm, relu and convolution2d added (optional bottleneck)
     """
     concat_axis = 1 if K.image_data_format() == 'channels_first' else -1
 
     if apply_batch_norm:  x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(ip)
     else:                 x = ip
-    x = Activation('relu')(x)
 
-    if bottleneck:
-        inter_channel = nb_filter * 4  # Obtained from https://github.com/liuzhuang13/DenseNet/blob/master/densenet.lua
-
-        x = Conv2D(inter_channel, (1, 1), padding='same', use_bias=False,
-                   kernel_regularizer=l2(weight_decay))(x)
-        if apply_batch_norm:
-            x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(x)
-        x = Activation('relu')(x)
-
-    x = Conv2D(nb_filter, (3, 3), padding='same', use_bias=False)(x)
+    x = Conv2D(nb_filter, (3, 3), padding='same', activation='relu')(x)
     if dropout_rate:
         x = Dropout(dropout_rate)(x)
 
     return x
 
 
-def __dense_block(x, nb_layers, nb_filter, growth_rate, bottleneck=False, dropout_rate=None, weight_decay=1e-4,
-                  grow_nb_filters=True, return_concat_list=False, apply_batch_norm=False):
-    """ Build a dense_block where the output of each conv_block is fed to subsequent ones
-    Args:
-        x: keras tensor
-        nb_layers: the number of layers of conv_block to append to the model.
-        nb_filter: number of filters
-        growth_rate: growth rate
-        bottleneck: bottleneck block
-        dropout_rate: dropout rate
-        weight_decay: weight decay factor
-        grow_nb_filters: flag to decide to allow number of filters to grow
-        return_concat_list: return the list of feature maps along with the actual output
-    Returns: keras tensor with nb_layers of conv_block appended
+def __dense_block(x, nb_layers, nb_filter, growth_rate, dropout_rate=None,
+                  grow_nb_filters=True, apply_batch_norm=False):
+    """
+    Build a dense_block where the output of each conv_block is fed to subsequent ones
     """
     concat_axis = 1 if K.image_data_format() == 'channels_first' else -1
-
     x_list = [x]
 
     for i in range(nb_layers):
-        cb = __conv_block(x, growth_rate, bottleneck, dropout_rate, weight_decay, apply_batch_norm=apply_batch_norm)
+        cb = __conv_block(x, growth_rate, dropout_rate, apply_batch_norm=apply_batch_norm)
         x_list.append(cb)
 
         x = concatenate([x, cb], axis=concat_axis)
-
         if grow_nb_filters:
             nb_filter += growth_rate
 
-    if return_concat_list:
-        return x, nb_filter, x_list
-    else:
-        return x, nb_filter
+    return x, nb_filter
 
 
-def __transition_block(ip, nb_filter, compression=1.0, weight_decay=1e-4, apply_batch_norm=False):
-    """ Apply BatchNorm, Relu 1x1, Conv2D, optional compression, dropout and Maxpooling2D
-    Args:
-        ip: keras tensor
-        nb_filter: number of filters
-        compression: calculated as 1 - reduction. Reduces the number of feature maps
-                    in the transition block.
-        weight_decay: weight decay factor
-    Returns: keras tensor, after applying batch_norm, relu-conv, dropout, maxpool
-    """
+def __transition_block(ip, nb_filter, compression=1.0, apply_batch_norm=False):
     concat_axis = 1 if K.image_data_format() == 'channels_first' else -1
 
     if apply_batch_norm:  x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(ip)
     else:                 x = ip
-    x = Activation('relu')(x)
-    x = Conv2D(int(nb_filter * compression), (1, 1), padding='same', use_bias=False,
-               kernel_regularizer=l2(weight_decay))(x)
+    x = Conv2D(int(nb_filter * compression), (1, 1), padding='same', activation=None)(x)
     # Original paper of dense-net uses AveragePooling, but DIIN makes use of MaxPooling with stride 2x2
     x = MaxPooling2D(strides=(2, 2))(x)
-    # x = AveragePooling2D((2, 2), strides=(2, 2))(x)
-
     return x
 
 
 def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_block=3, growth_rate=12, nb_filter=-1,
-                       nb_layers_per_block=-1, bottleneck=False, compression=1.0, dropout_rate=None, weight_decay=1e-4,
+                       nb_layers_per_block=-1, compression=1.0, dropout_rate=None,
                        subsample_initial_block=False, activation='softmax', apply_batch_norm=False):
     """ Build the DenseNet model
     Args:
@@ -219,10 +177,8 @@ def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_bl
                 If positive integer, a set number of layers per dense block.
                 If list, nb_layer is used as provided. Note that list size must
                 be (nb_dense_block + 1)
-        bottleneck: add bottleneck blocks
         compression: scale down ratio of feature maps.
         dropout_rate: dropout rate
-        weight_decay: weight decay rate
         subsample_initial_block: Set to True to subsample the initial convolution and
                 add a MaxPool2D before the dense blocks are added.
         activation: Type of activation at the top layer. Can be one of 'softmax' or 'sigmoid'.
@@ -263,17 +219,16 @@ def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_bl
 
     # Add dense blocks
     for block_idx in range(nb_dense_block - 1):
-        x, nb_filter = __dense_block(x, nb_layers[block_idx], nb_filter, growth_rate, bottleneck=bottleneck,
-                                     dropout_rate=dropout_rate, weight_decay=weight_decay,
+        x, nb_filter = __dense_block(x, nb_layers[block_idx], nb_filter, growth_rate,
+                                     dropout_rate=dropout_rate,
                                      apply_batch_norm=apply_batch_norm)
         # add transition_block
-        x = __transition_block(x, nb_filter, compression=compression, weight_decay=weight_decay)
+        x = __transition_block(x, nb_filter, compression=compression)
         nb_filter = int(nb_filter * compression)
 
     # The last dense_block does not have a transition_block
-    x, nb_filter = __dense_block(x, final_nb_layer, nb_filter, growth_rate, bottleneck=bottleneck,
-                                 dropout_rate=dropout_rate, weight_decay=weight_decay,
-                                 apply_batch_norm=apply_batch_norm)
+    x, nb_filter = __dense_block(x, final_nb_layer, nb_filter, growth_rate,
+                                 dropout_rate=dropout_rate, apply_batch_norm=apply_batch_norm)
 
     if apply_batch_norm:
         x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(x)

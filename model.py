@@ -66,11 +66,12 @@ class DIIN(Model):
         premise_word_embedding    = word_embedding(premise_word_input)
         hypothesis_word_embedding = word_embedding(hypothesis_word_input)
 
-        dropout = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
-                                  decay_interval=dropout_decay_interval,
-                                  decay_rate=dropout_decay_rate)
-        premise_word_embedding    = dropout(premise_word_embedding)
-        hypothesis_word_embedding = dropout(hypothesis_word_embedding)
+        premise_word_embedding    = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
+                                                    decay_interval=dropout_decay_interval,
+                                                    decay_rate=dropout_decay_rate)(premise_word_embedding)
+        hypothesis_word_embedding = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
+                                                    decay_interval=dropout_decay_interval,
+                                                    decay_rate=dropout_decay_rate)(hypothesis_word_embedding)
 
         # 2. Character input
         premise_char_input    = Input(shape=(p, chars_per_word,))
@@ -96,9 +97,9 @@ class DIIN(Model):
         d = K.int_shape(hypothesis_embedding)[-1]
 
         '''Encoding layer'''
-        # --Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]--
-        premise_encoding    = Encoding(d=d, dropout=dropout, name='PremiseEncoding')(premise_embedding)
-        hypothesis_encoding = Encoding(d=d, dropout=dropout, name='HypothesisEncoding')(hypothesis_embedding)
+        # Now we have the embedded premise [pxd] along with embedded hypothesis [hxd]
+        premise_encoding    = Encoding(d=d, name='PremiseEncoding')(premise_embedding)
+        hypothesis_encoding = Encoding(d=d, name='HypothesisEncoding')(hypothesis_embedding)
 
         '''Interaction layer'''
         interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
@@ -114,7 +115,9 @@ class DIIN(Model):
                                                 growth_rate=GR)
 
         '''Output layer'''
-        features = dropout(feature_extractor)
+        features = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
+                                   decay_interval=dropout_decay_interval,
+                                   decay_rate=dropout_decay_rate)(feature_extractor)
         out = Dense(units=nb_labels, activation='softmax', name='Output')(features)
         super(DIIN, self).__init__(inputs=[premise_word_input,    premise_char_input,    premise_syntactical_input,
                                            hypothesis_word_input, hypothesis_char_input, hypothesis_syntactical_input],
