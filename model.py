@@ -3,7 +3,7 @@ from keras.engine import Model
 from keras.layers import Input, Dense, Conv2D, Embedding, Conv1D, TimeDistributed, GlobalMaxPooling1D, Concatenate
 from keras.models import Sequential
 
-from feature_extractors.densenet import get_densenet_output
+from feature_extractors.densenet import DenseNet
 from layers.decaying_dropout import DecayingDropout
 from layers.encoding import Encoding
 from layers.interaction import Interaction
@@ -68,32 +68,34 @@ class DIIN(Model):
 
         premise_word_embedding    = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
                                                     decay_interval=dropout_decay_interval,
-                                                    decay_rate=dropout_decay_rate)(premise_word_embedding)
+                                                    decay_rate=dropout_decay_rate,
+                                                    name='PremiseWordEmbeddingDropout')(premise_word_embedding)
         hypothesis_word_embedding = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
                                                     decay_interval=dropout_decay_interval,
-                                                    decay_rate=dropout_decay_rate)(hypothesis_word_embedding)
+                                                    decay_rate=dropout_decay_rate,
+                                                    name='HypothesisWordEmbeddingDropout')(hypothesis_word_embedding)
 
         # 2. Character input
-        premise_char_input    = Input(shape=(p, chars_per_word,))
-        hypothesis_char_input = Input(shape=(h, chars_per_word,))
+        premise_char_input    = Input(shape=(p, chars_per_word,), name='PremiseCharInput')
+        hypothesis_char_input = Input(shape=(h, chars_per_word,), name='HypothesisCharInput')
 
         # Share weights of character-level embedding for premise and hypothesis
         character_embedding_layer = TimeDistributed(Sequential([
             Embedding(input_dim=128, output_dim=char_embedding_size, input_length=chars_per_word),
             Conv1D(filters=char_conv_filters, kernel_size=char_conv_kernel_size),
             GlobalMaxPooling1D()
-        ]))
+        ]), name='CharEmbedding')
         character_embedding_layer.build(input_shape=(None, None, chars_per_word))
         premise_char_embedding    = character_embedding_layer(premise_char_input)
         hypothesis_char_embedding = character_embedding_layer(hypothesis_char_input)
 
         # 3. Syntactical features
-        premise_syntactical_input    = Input(shape=(p, syntactical_feature_size,))
-        hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,))
+        premise_syntactical_input    = Input(shape=(p, syntactical_feature_size,), name='PremiseSyntacticalInput')
+        hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,), name='HypothesisSyntacticalInput')
 
         # Concatenate all features
-        premise_embedding    = Concatenate()([premise_word_embedding,    premise_char_embedding,    premise_syntactical_input])
-        hypothesis_embedding = Concatenate()([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
+        premise_embedding    = Concatenate(name='PremiseEmbedding')(   [premise_word_embedding,    premise_char_embedding,    premise_syntactical_input])
+        hypothesis_embedding = Concatenate(name='HypothesisEmbedding')([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
         d = K.int_shape(hypothesis_embedding)[-1]
 
         '''Encoding layer'''
@@ -105,18 +107,19 @@ class DIIN(Model):
         interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
 
         '''Feature Extraction layer'''
-        feature_extractor_input = Conv2D(filters=int(d * FSDR), kernel_size=1, activation=None)(interaction)
-        feature_extractor = get_densenet_output(include_top=False,
-                                                input_tensor=feature_extractor_input,
-                                                nb_dense_block=nb_dense_blocks,
-                                                nb_layers_per_block=n,
-                                                compression=TSDR,
-                                                growth_rate=GR)
+        feature_extractor_input = Conv2D(filters=int(d * FSDR), kernel_size=1, activation=None, name='FSDR')(interaction)
+        feature_extractor = DenseNet(include_top=False,
+                                     input_tensor=Input(shape=K.int_shape(feature_extractor_input)[1:]),
+                                     nb_dense_block=nb_dense_blocks,
+                                     nb_layers_per_block=n,
+                                     compression=TSDR,
+                                     growth_rate=GR)(feature_extractor_input)
 
         '''Output layer'''
         features = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
                                    decay_interval=dropout_decay_interval,
-                                   decay_rate=dropout_decay_rate)(feature_extractor)
+                                   decay_rate=dropout_decay_rate,
+                                   name='Features')(feature_extractor)
         out = Dense(units=nb_labels, activation='softmax', name='Output')(features)
         super(DIIN, self).__init__(inputs=[premise_word_input,    premise_char_input,    premise_syntactical_input,
                                            hypothesis_word_input, hypothesis_char_input, hypothesis_syntactical_input],
