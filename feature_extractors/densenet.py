@@ -11,17 +11,16 @@ import keras.backend as K
 from keras.applications.imagenet_utils import _obtain_input_shape
 from keras.layers import Input, Flatten
 from keras.layers.convolutional import Conv2D
-from keras.layers.core import Dense, Dropout, Activation
+from keras.layers.core import Dense, Dropout
 from keras.layers.merge import concatenate
 from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import GlobalAveragePooling2D
 from keras.layers.pooling import MaxPooling2D
 
 
-def get_densenet_output(input_shape=None, depth=40, nb_dense_block=3, growth_rate=12, nb_filter=-1,
-                        nb_layers_per_block=-1, compression=1.0, dropout_rate=0.0,
-                        subsample_initial_block=False, include_top=True, weights=None, input_tensor=None,
-                        classes=10, activation='softmax', apply_batch_norm=False):
+def get_densenet_output(input_shape=None, depth=40, nb_dense_block=3, growth_rate=12,
+                        nb_layers_per_block=-1, compression=1.0, dropout_rate=0.,
+                        include_top=True, input_tensor=None, classes=10, activation='softmax', apply_batch_norm=False):
     """Instantiate the DenseNet architecture,
         optionally loading weights pre-trained
         on CIFAR-10. Note that when using TensorFlow,
@@ -54,12 +53,8 @@ def get_densenet_output(input_shape=None, depth=40, nb_dense_block=3, growth_rat
             bottleneck: flag to add bottleneck blocks in between dense blocks
             compression: scale down ratio of feature maps.
             dropout_rate: dropout rate
-            subsample_initial_block: Set to True to subsample the initial convolution and
-                add a MaxPool2D before the dense blocks are added.
             include_top: whether to include the fully-connected
                 layer at the top of the network.
-            weights: one of `None` (random initialization) or
-                'imagenet' (pre-training on ImageNet)..
             input_tensor: optional Keras tensor (i.e. output of `layers.Input()`)
                 to use as image input for the model.
             classes: optional number of classes to classify images
@@ -70,15 +65,6 @@ def get_densenet_output(input_shape=None, depth=40, nb_dense_block=3, growth_rat
         # Returns
             A Keras model instance.
         """
-
-    if weights not in {'imagenet', None}:
-        raise ValueError('The `weights` argument should be either '
-                         '`None` (random initialization) or `cifar10` '
-                         '(pre-training on CIFAR-10).')
-
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as ImageNet with `include_top`'
-                         ' as true, `classes` should be 1000')
 
     if activation not in ['softmax', 'sigmoid']:
         raise ValueError('activation must be one of "softmax" or "sigmoid"')
@@ -101,9 +87,8 @@ def get_densenet_output(input_shape=None, depth=40, nb_dense_block=3, growth_rat
         else:
             img_input = input_tensor
 
-    x = __create_dense_net(classes, img_input, include_top, depth, nb_dense_block,
-                           growth_rate, nb_filter, nb_layers_per_block, compression,
-                           dropout_rate, subsample_initial_block, activation, apply_batch_norm)
+    x = __create_dense_net(classes, img_input, include_top, depth, nb_dense_block, growth_rate, nb_layers_per_block,
+                           compression, dropout_rate, activation, apply_batch_norm)
 
     # return output
     return x
@@ -129,10 +114,10 @@ def __conv_block(ip, nb_filter, dropout_rate=None, apply_batch_norm=False):
     return x
 
 
-def __dense_block(x, nb_layers, nb_filter, growth_rate, dropout_rate=None,
-                  grow_nb_filters=True, apply_batch_norm=False):
+def __dense_block(x, nb_layers, growth_rate, dropout_rate=None, apply_batch_norm=False):
     """
     Build a dense_block where the output of each conv_block is fed to subsequent ones
+    :return x, number of filters output layer has
     """
     concat_axis = 1 if K.image_data_format() == 'channels_first' else -1
     x_list = [x]
@@ -142,13 +127,11 @@ def __dense_block(x, nb_layers, nb_filter, growth_rate, dropout_rate=None,
         x_list.append(cb)
 
         x = concatenate([x, cb], axis=concat_axis)
-        if grow_nb_filters:
-            nb_filter += growth_rate
 
-    return x, nb_filter
+    return x, K.int_shape(x)[3]
 
 
-def __transition_block(ip, nb_filter, compression=1.0, apply_batch_norm=False):
+def __transition_block(ip, nb_filter, compression, apply_batch_norm):
     concat_axis = 1 if K.image_data_format() == 'channels_first' else -1
 
     if apply_batch_norm:  x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(ip)
@@ -159,9 +142,9 @@ def __transition_block(ip, nb_filter, compression=1.0, apply_batch_norm=False):
     return x
 
 
-def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_block=3, growth_rate=12, nb_filter=-1,
+def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_block=3, growth_rate=12,
                        nb_layers_per_block=-1, compression=1.0, dropout_rate=None,
-                       subsample_initial_block=False, activation='softmax', apply_batch_norm=False):
+                       activation='softmax', apply_batch_norm=False):
     """ Build the DenseNet model
     Args:
         nb_classes: number of classes
@@ -170,7 +153,6 @@ def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_bl
         depth: number or layers
         nb_dense_block: number of dense blocks to add to end (generally = 3)
         growth_rate: number of filters to add per dense block
-        nb_filter: initial number of filters. Default -1 indicates initial number of filters is 2 * growth_rate
         nb_layers_per_block: number of layers in each dense block.
                 Can be a -1, positive integer or a list.
                 If -1, calculates nb_layer_per_block from the depth of the network.
@@ -179,8 +161,6 @@ def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_bl
                 be (nb_dense_block + 1)
         compression: scale down ratio of feature maps.
         dropout_rate: dropout rate
-        subsample_initial_block: Set to True to subsample the initial convolution and
-                add a MaxPool2D before the dense blocks are added.
         activation: Type of activation at the top layer. Can be one of 'softmax' or 'sigmoid'.
                 Note that if sigmoid is used, classes must be 1.
     Returns: keras tensor with nb_layers of conv_block appended
@@ -194,45 +174,24 @@ def __create_dense_net(nb_classes, img_input, include_top, depth=40, nb_dense_bl
 
         assert len(nb_layers) == nb_dense_block, 'If list, nb_layer is used as provided. ' \
                                                  'Note that list size must be (nb_dense_block)'
-        final_nb_layer = nb_layers[-1]
         nb_layers = nb_layers[:-1]
     else:
         if nb_layers_per_block == -1:
             assert (depth - 4) % 3 == 0, 'Depth must be 3 N + 4 if nb_layers_per_block == -1'
             count = int((depth - 4) / 3)
             nb_layers = [count for _ in range(nb_dense_block)]
-            final_nb_layer = count
         else:
-            final_nb_layer = nb_layers_per_block
             nb_layers = [nb_layers_per_block] * nb_dense_block
 
-    # compute initial nb_filter if -1, else accept users initial nb_filter
-    if nb_filter <= 0:
-        nb_filter = 2 * growth_rate
-
-    x = img_input
-    if subsample_initial_block:
-        if apply_batch_norm:
-            x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(x)
-        x = Activation('relu')(x)
-        x = MaxPooling2D((3, 3), strides=(2, 2), padding='same')(x)
-
     # Add dense blocks
-    for block_idx in range(nb_dense_block - 1):
-        x, nb_filter = __dense_block(x, nb_layers[block_idx], nb_filter, growth_rate,
-                                     dropout_rate=dropout_rate,
-                                     apply_batch_norm=apply_batch_norm)
+    x = img_input
+    for block_idx in range(nb_dense_block):
+        x, nb_filter = __dense_block(x, nb_layers[block_idx], growth_rate, dropout_rate, apply_batch_norm)
         # add transition_block
-        x = __transition_block(x, nb_filter, compression=compression)
-        nb_filter = int(nb_filter * compression)
-
-    # The last dense_block does not have a transition_block
-    x, nb_filter = __dense_block(x, final_nb_layer, nb_filter, growth_rate,
-                                 dropout_rate=dropout_rate, apply_batch_norm=apply_batch_norm)
+        x = __transition_block(x, nb_filter, compression=compression, apply_batch_norm=apply_batch_norm)
 
     if apply_batch_norm:
         x = BatchNormalization(axis=concat_axis, epsilon=1.1e-5)(x)
-    x = Activation('relu')(x)
 
     # Flatten if the shapes are known otherwise apply average pooling
     try:        x = Flatten()(x)

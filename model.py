@@ -107,7 +107,6 @@ class DIIN(Model):
         '''Feature Extraction layer'''
         feature_extractor_input = Conv2D(filters=int(d * FSDR), kernel_size=1, activation=None)(interaction)
         feature_extractor = get_densenet_output(include_top=False,
-                                                weights=None,
                                                 input_tensor=feature_extractor_input,
                                                 nb_dense_block=nb_dense_blocks,
                                                 nb_layers_per_block=n,
