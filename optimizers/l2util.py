@@ -41,9 +41,8 @@ class BaseL2Optimizer(Optimizer):
                  l2_full_step,
                  l2_full_ratio,
                  l2_difference_full_ratio,
-                 *args,
                  **kwargs):
-        super(BaseL2Optimizer, self).__init__()
+        super(BaseL2Optimizer, self).__init__(**kwargs)
         self.l2_full_step = K.variable(l2_full_step, name='l2_full_step')
         self.l2_full_ratio = K.variable(l2_full_ratio, name='l2_full_ratio')
         self.l2_difference_full_ratio = K.variable(l2_difference_full_ratio, name='l2_difference_full_ratio')
