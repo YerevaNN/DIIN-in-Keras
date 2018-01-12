@@ -38,9 +38,9 @@ def compute_decaying_difference_l2_loss(loss, params, time, l2_full_step, l2_dif
 class BaseL2Optimizer(Optimizer):
 
     def __init__(self,
-                 l2_full_step=100000.,
-                 l2_full_ratio=0.9e-5,
-                 l2_difference_full_ratio=1e-3,
+                 l2_full_step,
+                 l2_full_ratio,
+                 l2_difference_full_ratio,
                  *args,
                  **kwargs):
         super(BaseL2Optimizer, self).__init__()

@@ -104,7 +104,7 @@ if __name__ == '__main__':
     assert syntactical_feature_size == train_data[5].shape[-1]
 
     ''' Prepare the model and optimizers '''
-    adadelta = AdadeltaL2(lr=0.1, rho=0.95, epsilon=1e-8)
+    adadelta = AdadeltaL2(lr=0.5, rho=0.95, epsilon=1e-8)
     sgd = SGDL2(lr=3e-4)
     model = DIIN(p=train_data[0].shape[-1],  # or None
                  h=train_data[3].shape[-1],  # or None
