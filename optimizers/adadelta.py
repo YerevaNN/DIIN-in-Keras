@@ -6,7 +6,7 @@ from optimizers.l2util import BaseL2Optimizer
 class AdadeltaL2(Adadelta, BaseL2Optimizer):
     def __init__(self,
                  l2_full_step=100000.,
-                 l2_full_ratio=0.9e-5,
+                 l2_full_ratio=9e-5,
                  l2_difference_full_ratio=1e-3,
                  **kwargs):
         Adadelta.__init__(self, **kwargs)
