@@ -18,7 +18,7 @@ def compute_decaying_l2_loss(loss, params, time, l2_full_step, l2_full_ratio):
     return loss
 
 
-def compute_decaying_difference_l2_loss(loss, params, time, l2_full_step, l2_difference_full_ratio):
+def compute_difference_l2_loss(loss, params, l2_difference_ratio):
     """ Add L2 regularization to penalize the difference between weights """
     penalize_difference = {}
     for param in params:
@@ -28,7 +28,6 @@ def compute_decaying_difference_l2_loss(loss, params, time, l2_full_step, l2_dif
                 penalize_difference[weight_name] = []
             penalize_difference[weight_name].append(param)
 
-    l2_difference_ratio = compute_l2_ratio(time, l2_full_step, l2_difference_full_ratio)
     for penalize_weights in penalize_difference.values():
         for w1, w2 in itertools.combinations(penalize_weights, 2):
             loss += K.sum(l2_difference_ratio * K.square(w1 - w2))
@@ -53,7 +52,7 @@ class BaseL2Optimizer(Optimizer):
     def get_l2_loss(self, loss, params, iterations):
         iterations = K.cast(iterations, dtype='float32')
         loss = compute_decaying_l2_loss(loss, params, iterations, self.l2_full_step, self.l2_full_ratio)
-        loss = compute_decaying_difference_l2_loss(loss, params, iterations, self.l2_full_step, self.l2_difference_full_ratio)
+        loss += compute_difference_l2_loss(loss, params, self.l2_difference_full_ratio)
         return loss
 
     def get_config(self):
