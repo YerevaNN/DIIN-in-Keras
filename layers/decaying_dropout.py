@@ -38,16 +38,10 @@ class DecayingDropout(Layer):
     def call(self, inputs, training=None):
         noise_shape = self._get_noise_shape(inputs)
         one = K.ones(shape=K.int_shape(self.current_step))
-        zero = K.zeros(shape=K.int_shape(self.current_step))
 
         def dropped_inputs():
-            return K.dropout(inputs, 1 - self.current_keep_rate, noise_shape, seed=self.seed)
+            return K.dropout(inputs, 1 - keep_rate, noise_shape, seed=self.seed)
 
-        new_keep_rate = K.switch(K.all(self.current_step % self.decay_interval == zero),
-                                 self.current_keep_rate * self.decay_rate,
-                                 self.current_keep_rate)
-
-        self.add_update([K.update_add(self.current_step, one),
-                         K.update(self.current_keep_rate, new_keep_rate)],
-                        inputs)
+        keep_rate = self.initial_keep_rate * K.pow(self.decay_rate, self.current_step / self.decay_interval)
+        self.add_update([K.update_add(self.current_step, one)], inputs)
         return K.in_train_phase(dropped_inputs, inputs, training=training)
