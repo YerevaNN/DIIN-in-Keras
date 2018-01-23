@@ -89,15 +89,6 @@ class DIIN(Model):
         premise_char_embedding    = character_embedding_layer(premise_char_input)
         hypothesis_char_embedding = character_embedding_layer(hypothesis_char_input)
 
-        premise_char_embedding = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
-                                                 decay_interval=dropout_decay_interval,
-                                                 decay_rate=dropout_decay_rate,
-                                                 name='PremiseCharEmbedding')(premise_char_embedding)
-        hypothesis_char_embedding = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
-                                                    decay_interval=dropout_decay_interval,
-                                                    decay_rate=dropout_decay_rate,
-                                                    name='HypothesisCharEmbedding')(hypothesis_char_embedding)
-
         # 3. Syntactical features
         premise_syntactical_input    = Input(shape=(p, syntactical_feature_size,), name='PremiseSyntacticalInput')
         hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,), name='HypothesisSyntacticalInput')
@@ -114,9 +105,7 @@ class DIIN(Model):
 
         '''Interaction layer'''
         interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
-        interaction = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
-                                      decay_interval=dropout_decay_interval,
-                                      decay_rate=dropout_decay_rate)(interaction)
+
         '''Feature Extraction layer'''
         feature_extractor_input = Conv2D(filters=int(d * FSDR), kernel_size=1, activation=None, name='FSD')(interaction)
         feature_extractor = DenseNet(include_top=False,

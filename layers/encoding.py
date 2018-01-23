@@ -115,10 +115,10 @@ class Encoding(Layer):
 
         ''' Fuse gate '''
         # These layers are considered linear in the official implementation, therefore we apply dropout on each input
-        P_concat = K.concatenate([P, itr_attn], axis=2)                     # (batch, p, 2d)
-        z = K.tanh(K.dot(DecayingDropout()(P_concat), self.w1) + self.b1)        # (batch, p, d)
-        r = K.sigmoid(K.dot(DecayingDropout()(P_concat), self.w2) + self.b2)     # (batch, p, d)
-        f = K.sigmoid(K.dot(DecayingDropout()(P_concat), self.w3) + self.b3)     # (batch, p, d)
+        P_concat = K.concatenate([P, itr_attn], axis=2)                         # (batch, p, 2d)
+        z = K.tanh(K.dot(DecayingDropout()(P_concat), self.w1) + self.b1)       # (batch, p, d)
+        r = K.sigmoid(K.dot(DecayingDropout()(P_concat), self.w2) + self.b2)    # (batch, p, d)
+        f = K.sigmoid(K.dot(DecayingDropout()(P_concat), self.w3) + self.b3)    # (batch, p, d)
 
         encoding = r * P + f * z        # (batch, p, d)
         return encoding                 # (batch, p, d)
