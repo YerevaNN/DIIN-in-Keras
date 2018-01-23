@@ -12,7 +12,7 @@ class DecayingDropout(Layer):
                  **kwargs):
 
         super(DecayingDropout, self).__init__(**kwargs)
-        self.iterations = K.variable(0, dtype='int64', name='time')
+        self.iterations = K.variable(0, dtype='int64', name='iterations')
         self.initial_keep_rate = initial_keep_rate
         self.decay_interval = decay_interval
         self.decay_rate = min(1., max(0., decay_rate))
@@ -42,7 +42,7 @@ class DecayingDropout(Layer):
         return K.in_train_phase(dropped_inputs, inputs, training=training)
 
     def get_config(self):
-        config = {'current_step':       float(K.get_value(self.iterations)),
+        config = {'iterations':         float(K.get_value(self.iterations)),
                   'initial_keep_rate':  self.initial_keep_rate,
                   'decay_interval':     self.decay_interval,
                   'decay_rate':         self.decay_rate,
