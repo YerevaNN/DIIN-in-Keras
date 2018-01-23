@@ -7,11 +7,11 @@ import shutil
 
 import numpy as np
 from keras.callbacks import TensorBoard
+from keras.optimizers import Adadelta, SGD
 from tqdm import tqdm
 
 from model import DIIN
-from optimizers.adadelta import AdadeltaL2
-from optimizers.sgd import SGDL2
+from optimizers.l2optimizer import L2Optimizer
 from util import ChunkDataManager
 
 
@@ -104,8 +104,8 @@ if __name__ == '__main__':
     assert syntactical_feature_size == train_data[5].shape[-1]
 
     ''' Prepare the model and optimizers '''
-    adadelta = AdadeltaL2(lr=0.5, rho=0.95, epsilon=1e-8)
-    sgd = SGDL2(lr=3e-4)
+    adadelta = L2Optimizer(Adadelta(lr=0.5, rho=0.95, epsilon=1e-8))
+    sgd = L2Optimizer(SGD(lr=3e-4))
     model = DIIN(p=train_data[0].shape[-1],  # or None
                  h=train_data[3].shape[-1],  # or None
                  word_embedding_weights=word_embedding_weights,

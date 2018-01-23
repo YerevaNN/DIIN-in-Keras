@@ -3,23 +3,27 @@ from __future__ import division
 import itertools
 
 from keras import backend as K
-from keras.optimizers import Optimizer
+from keras.optimizers import Optimizer, serialize, deserialize
 
 
-class BaseL2Optimizer(Optimizer):
+class L2Optimizer(Optimizer):
 
     def __init__(self,
-                 l2_full_step,
-                 l2_full_ratio,
-                 l2_difference_full_ratio,
-                 **kwargs):
-        super(BaseL2Optimizer, self).__init__(**kwargs)
+                 optimizer,
+                 l2_full_step=100000.,
+                 l2_full_ratio=9e-5,
+                 l2_difference_full_ratio=1e-3):
+        """
+        :param optimizer: real optimizer which is wrapped by L2Optimizer
+        :param l2_full_step: determines at which step the maximum L2 regularization ratio would be applied
+        :param l2_full_ratio: determines the maximum L2 regularization ratio
+        :param l2_difference_full_ratio: determines the maximum L2 regularization for weight difference penalization
+        """
+        super(L2Optimizer, self).__init__()
+        self.optimizer = optimizer
         self.l2_full_step = K.variable(l2_full_step, name='l2_full_step')
         self.l2_full_ratio = K.variable(l2_full_ratio, name='l2_full_ratio')
         self.l2_difference_full_ratio = K.variable(l2_difference_full_ratio, name='l2_difference_full_ratio')
-
-    def get_updates(self, loss, params):
-        return NotImplementedError
 
     @staticmethod
     def compute_l2_ratio(time, l2_full_step, l2_full_ratio):
@@ -46,14 +50,30 @@ class BaseL2Optimizer(Optimizer):
                 loss += K.sum(self.l2_difference_full_ratio * K.square(w1 - w2))
 
     def get_l2_loss(self, loss, params, iterations):
-        iterations = K.cast(iterations, dtype='float32')
-        self.add_decaying_l2_loss(loss, params, iterations)
+        t = K.cast(iterations, dtype=K.floatx())
+        self.add_decaying_l2_loss(loss, params, t)
         self.add_difference_l2_loss(loss, params)
         return loss
 
+    def get_updates(self, loss, params):
+        loss = self.get_l2_loss(loss=loss, params=params, iterations=self.optimizer.iterations)
+        return self.optimizer.get_updates(self, loss=loss, params=params)
+
     def get_config(self):
-        config = {'l2_full_step':               float(K.get_value(self.l2_full_step)),
+        config = {'optimizer':                  serialize(self.optimizer),
+                  'l2_full_step':               float(K.get_value(self.l2_full_step)),
                   'l2_full_ratio':              float(K.get_value(self.l2_full_ratio)),
                   'l2_difference_full_ratio':   float(K.get_value(self.l2_difference_full_ratio))}
-        base_config = super(BaseL2Optimizer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        return config
+
+    @classmethod
+    def from_config(cls, config, custom_objects=None):
+        optimizer_config = config.pop('optimizer')
+        optimizer = deserialize(optimizer_config)
+        return cls(optimizer=optimizer, **config)
+
+    def set_weights(self, weights):
+        self.optimizer.set_weights(weights)
+
+    def get_weights(self):
+        return self.optimizer.get_weights()
