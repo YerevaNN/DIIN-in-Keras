@@ -4,7 +4,7 @@ from keras.engine import Layer
 
 class DecayingDropout(Layer):
     def __init__(self,
-                 initial_keep_rate=1,
+                 initial_keep_rate=1.,
                  decay_interval=10000,
                  decay_rate=0.977,
                  noise_shape=None,
@@ -12,7 +12,6 @@ class DecayingDropout(Layer):
                  **kwargs):
 
         super(DecayingDropout, self).__init__(**kwargs)
-        self.current_keep_rate = None
         self.current_step = None
         self.initial_keep_rate = initial_keep_rate
         self.decay_interval = decay_interval
@@ -22,7 +21,6 @@ class DecayingDropout(Layer):
         self.supports_masking = True
 
     def build(self, input_shape):
-        self.current_keep_rate = K.variable(self.initial_keep_rate, name='keep_rate')
         self.current_step = K.variable(1, name='time')
         super(DecayingDropout, self).build(input_shape)
 
@@ -42,6 +40,17 @@ class DecayingDropout(Layer):
         def dropped_inputs():
             return K.dropout(inputs, 1 - keep_rate, noise_shape, seed=self.seed)
 
-        keep_rate = self.initial_keep_rate * K.pow(self.decay_rate, self.current_step / self.decay_interval)
+        p = K.cast_to_floatx(self.current_step) / float(self.decay_interval)
+        keep_rate = self.initial_keep_rate * K.pow(self.decay_rate, p)
         self.add_update([K.update_add(self.current_step, one)], inputs)
         return K.in_train_phase(dropped_inputs, inputs, training=training)
+
+    def get_config(self):
+        config = {'current_step':       self.current_step,
+                  'initial_keep_rate':  self.initial_keep_rate,
+                  'decay_interval':     self.decay_interval,
+                  'decay_rate':         self.decay_rate,
+                  'noise_shape':        self.noise_shape,
+                  'seed':               self.seed}
+        base_config = super(DecayingDropout, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
