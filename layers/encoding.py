@@ -8,8 +8,7 @@ from util import broadcast_last_axis
 
 
 class Encoding(Layer):
-    def __init__(self, d, **kwargs):
-        self.d = d
+    def __init__(self, **kwargs):
         self.w_itr_att = None
         self.w1 = None
         self.w2 = None
@@ -20,15 +19,16 @@ class Encoding(Layer):
         super(Encoding, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        self.w_itr_att = self.add_weight(name='w_itr_att', shape=(3 * self.d,), initializer='glorot_uniform')
+        d = input_shape[-1]
+        self.w_itr_att = self.add_weight(name='w_itr_att', shape=(3 * d,), initializer='glorot_uniform')
 
-        self.w1 = self.add_weight(name='W1', shape=(2 * self.d, self.d,), initializer='glorot_uniform')
-        self.w2 = self.add_weight(name='W2', shape=(2 * self.d, self.d,), initializer='glorot_uniform')
-        self.w3 = self.add_weight(name='W3', shape=(2 * self.d, self.d,), initializer='glorot_uniform')
+        self.w1 = self.add_weight(name='W1', shape=(2 * d, d,), initializer='glorot_uniform')
+        self.w2 = self.add_weight(name='W2', shape=(2 * d, d,), initializer='glorot_uniform')
+        self.w3 = self.add_weight(name='W3', shape=(2 * d, d,), initializer='glorot_uniform')
 
-        self.b1 = self.add_weight(name='b1', shape=(self.d,), initializer='zeros')
-        self.b2 = self.add_weight(name='b2', shape=(self.d,), initializer='zeros')
-        self.b3 = self.add_weight(name='b3', shape=(self.d,), initializer='zeros')
+        self.b1 = self.add_weight(name='b1', shape=(d,), initializer='zeros')
+        self.b2 = self.add_weight(name='b2', shape=(d,), initializer='zeros')
+        self.b3 = self.add_weight(name='b3', shape=(d,), initializer='zeros')
 
         # Add parameters for weights to penalize difference between them
         # Optimizer will penalize weight difference between all occurrences of the same name
