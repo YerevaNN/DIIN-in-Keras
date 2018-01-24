@@ -6,7 +6,7 @@ import random
 
 import numpy as np
 from keras.callbacks import TensorBoard
-from keras.optimizers import Adadelta, SGD
+from keras.optimizers import Adadelta, SGD, Adam
 from tqdm import tqdm
 
 from model import DIIN
@@ -43,7 +43,9 @@ class Gym(object):
 
     def switch_optimizer(self):
         self.optimizer_id += 1
+        previous_optimizer = self.current_optimizer
         self.current_optimizer, self.current_switch_step = self.optimizers[self.optimizer_id]
+        self.current_optimizer.optimizer.iterations = previous_optimizer.optimizer.iterations
         self.model.compile(optimizer=self.current_optimizer,
                            loss='categorical_crossentropy',
                            metrics=['accuracy'])
@@ -129,6 +131,7 @@ if __name__ == '__main__':
     assert syntactical_feature_size == train_data[5].shape[-1]
 
     ''' Prepare the model and optimizers '''
+    adam = L2Optimizer(Adam())
     adadelta = L2Optimizer(Adadelta(lr=0.5, rho=0.95, epsilon=1e-8))
     sgd = L2Optimizer(SGD(lr=3e-4))
     model = DIIN(p=train_data[0].shape[-1],  # or None
@@ -142,7 +145,7 @@ if __name__ == '__main__':
     ''' Initialize Gym for training '''
     gym = Gym(model=model,
               train_data=train_data, test_data=test_data, dev_data=dev_data,
-              optimizers=[(adadelta, 2), (sgd, 100000)],
+              optimizers=[(adam, 2), (adadelta, 3), (sgd, 100000)],
               logger=TensorBoard(log_dir=args.logdir),
               models_save_dir=args.models_dir)
 
