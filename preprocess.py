@@ -75,7 +75,7 @@ class BasePreprocessor(object):
         self.unique_words           = set(self.all_words)
         self.unique_parts_of_speech = set(self.all_parts_of_speech)
 
-    def init_word_to_vecs(self, vectors_file_path, needed_words, normalize=True):
+    def init_word_to_vecs(self, vectors_file_path, needed_words, normalize=False):
         """
         Initialize:
             {word -> vec} mapping
@@ -83,6 +83,7 @@ class BasePreprocessor(object):
             [vectors] array
         :param vectors_file_path: file where word-vectors are stored (Glove .txt file)
         :param needed_words: words for which to keep word-vectors
+        :param normalize: normalize word vectors
         """
         needed_words = set(needed_words)
         self.word_to_vec = {}
