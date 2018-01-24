@@ -3,7 +3,6 @@ from __future__ import print_function
 import argparse
 import os
 import random
-import shutil
 
 import numpy as np
 from keras.callbacks import TensorBoard
@@ -15,74 +14,98 @@ from optimizers.l2optimizer import L2Optimizer
 from util import ChunkDataManager
 
 
-def train(model,
-          train_data,
-          test_data,
-          dev_data,
-          initial_optimizer,
-          secondary_optimizer,
-          logger,
-          models_save_dir,
-          optimizer_switch_step=30000,
-          epochs=30,
-          batch_size=70,
-          shuffle=True):
+class Gym(object):
+    def __init__(self,
+                 model,
+                 train_data,
+                 test_data,
+                 dev_data,
+                 optimizers,
+                 logger,
+                 models_save_dir):
 
-    print('train:\t', [d.shape for d in train_data])
-    print('test:\t',  [d.shape for d in test_data])
-    print('dev:\t',   [d.shape for d in dev_data])
+        self.model = model
+        self.logger = logger
+        self.logger.set_model(self.model)
 
-    model.compile(optimizer=initial_optimizer,
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
-    model.summary()
+        ''' Data '''
+        self.train_data = train_data
+        self.test_data = test_data
+        self.dev_data = dev_data
+        self.model_save_dir = models_save_dir
+        if not os.path.exists(self.model_save_dir):
+            os.mkdir(self.model_save_dir)
 
-    step, no_progress_steps = 0, 0
-    best_loss = 1000.
-    logger.set_model(model)
+        ''' Optimizers '''
+        self.optimizers = optimizers
+        self.optimizer_id = -1
+        self.current_optimizer = None
+        self.current_switch_step = -1
 
-    # Start training
-    for epoch in range(epochs):
-        if shuffle:
-            random.shuffle(list(zip(train_data)))
-        train_inputs = train_data[:-1]
-        train_labels = train_data[-1]
+    def switch_optimizer(self):
+        self.optimizer_id += 1
+        self.current_optimizer, self.current_switch_step = self.optimizers[self.optimizer_id]
+        self.model.compile(optimizer=self.current_optimizer,
+                           loss='categorical_crossentropy',
+                           metrics=['accuracy'])
 
-        # Log results to tensorboard and save the model
+    def train(self, batch_size=70, eval_interval=500, shuffle=True):
+        print('train:\t', [d.shape for d in self.train_data])
+        print('test:\t',  [d.shape for d in self.test_data])
+        print('dev:\t',   [d.shape for d in self.dev_data])
+
+        # Initialize optimizer
+        self.switch_optimizer()
+        self.model.summary()
+
+        # Start training
+        train_step, eval_step, no_progress_steps = 0, 0, 0
+        train_batch_start = 0
+        best_loss = 1000.
+
+        while True:
+            if shuffle:
+                random.shuffle(list(zip(train_data)))
+            train_inputs = train_data[:-1]
+            train_labels = train_data[-1]
+
+            # Evaluate
+            test_loss, dev_loss = self.evaluate(eval_step=eval_step, batch_size=batch_size)
+
+            # Switch optimizer if it's necessary
+            no_progress_steps += 1
+            if test_loss < best_loss:
+                best_loss = test_loss
+                no_progress_steps = 0
+
+            if no_progress_steps >= self.current_switch_step:
+                self.switch_optimizer()
+                no_progress_steps = 0
+
+            # Train eval_interval times
+            for _ in tqdm(range(eval_interval)):
+                [loss, acc] = model.train_on_batch(
+                    [train_input[train_batch_start: train_batch_start + batch_size] for train_input in train_inputs],
+                    train_labels[train_batch_start: train_batch_start + batch_size])
+                self.logger.on_epoch_end(epoch=train_step, logs={'acc': acc, 'loss': loss})
+                train_step += 1
+                train_batch_start += batch_size
+                if train_batch_start > len(train_inputs[0]):
+                    train_batch_start = 0
+
+    def evaluate(self, eval_step, batch_size=None):
         [test_loss, test_acc] = model.evaluate(test_data[:-1], test_data[-1], batch_size=batch_size)
         [dev_loss,  dev_acc]  = model.evaluate(dev_data[:-1],  dev_data[-1],  batch_size=batch_size)
-        logger.on_epoch_end(epoch=epoch, logs={'test_acc': test_acc, 'test_loss': test_loss})
-        logger.on_epoch_end(epoch=epoch, logs={'dev_acc': dev_acc,   'dev_loss': dev_loss})
-        model.save(filepath=models_save_dir + 'epoch={}-tloss={}-tacc={}.model'.format(epoch, test_loss, test_acc))
+        self.logger.on_epoch_end(epoch=eval_step, logs={'test_acc': test_acc, 'test_loss': test_loss})
+        self.logger.on_epoch_end(epoch=eval_step, logs={'dev_acc':  dev_acc,  'dev_loss':  dev_loss})
+        model.save(self.model_save_dir + 'epoch={}-tloss={}-tacc={}.model'.format(eval_step, test_loss, test_acc))
 
-        # Switch optimizer if it's necessary
-        no_progress_steps += 1
-        if test_loss < best_loss:
-            best_loss = test_loss
-            no_progress_steps = 0
-
-        if no_progress_steps >= optimizer_switch_step:
-            print('Switching to the secondary optimizer...')
-            optimizer_switch_step = 10000000000             # Never update again
-            model.compile(optimizer=secondary_optimizer,    # Compile the model again to use a new optimizer
-                          loss='categorical_crossentropy',
-                          metrics=['accuracy'])
-            print('Recompiled the model!')
-
-        # Train one epoch
-        for batch in tqdm(range(0, len(train_data[0]), batch_size)):
-            [loss, acc] = model.train_on_batch([train_input[batch: batch+batch_size] for train_input in train_inputs],
-                                               train_labels[batch: batch+batch_size])
-            logger.on_epoch_end(epoch=step, logs={'acc': acc, 'loss': loss})
-            step += 1
-
-    logger.on_train_end('Good Bye!')
+        return test_loss, dev_loss
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size',         default=70,     help='Batch size',                          type=int)
-    parser.add_argument('--optimizer_switch',   default=1,      help='Switch step of optimizer',            type=int)
     parser.add_argument('--char_embed_size',    default=8,      help='Size of character embedding',         type=int)
     parser.add_argument('--char_conv_filters',  default=100,    help='Number of character conv filters',    type=int)
     parser.add_argument('--load_dir',           default='data',             help='Directory of the data',   type=str)
@@ -114,24 +137,11 @@ if __name__ == '__main__':
                  char_embedding_size=args.char_embed_size,
                  char_conv_filters=args.char_conv_filters)
 
-    # Prepare directory for models
-    if not os.path.exists(args.models_dir):
-        os.mkdir(args.models_dir)
+    ''' Initialize Gym for training '''
+    gym = Gym(model=model,
+              train_data=train_data, test_data=test_data, dev_data=dev_data,
+              optimizers=[(adadelta, 2), (sgd, 100000)],
+              logger=TensorBoard(log_dir=args.logdir),
+              models_save_dir=args.models_dir)
 
-    # Clean-up tensorboard dir if necessary
-    tensorboard_dir = args.logdir
-    if os.path.exists(tensorboard_dir):
-        shutil.rmtree(tensorboard_dir, ignore_errors=True)
-
-    board = TensorBoard(log_dir=tensorboard_dir)
-    train(model=model,
-          epochs=33,
-          train_data=train_data,
-          test_data=test_data,
-          dev_data=dev_data,
-          initial_optimizer=adadelta,
-          secondary_optimizer=sgd,
-          batch_size=args.batch_size,
-          optimizer_switch_step=args.optimizer_switch,
-          models_save_dir=args.models_dir,
-          logger=board)
+    gym.train(batch_size=70, eval_interval=500, shuffle=True)
