@@ -96,8 +96,6 @@ class BasePreprocessor(object):
 
                 if word in needed_words:
                     coefs = np.asarray(values[1:], dtype='float32')
-                    if normalize:
-                        coefs /= np.linalg.norm(coefs)
                     self.word_to_vec[word] = coefs
 
         word_vector_size = len(self.word_to_vec['hello'])
@@ -108,6 +106,10 @@ class BasePreprocessor(object):
 
         for word in not_present_words:
             self.word_to_vec[word] = np.random.uniform(size=word_vector_size)
+
+        if normalize:
+            for word, coefs in self.word_to_vec.items():
+                self.word_to_vec[word] = coefs / np.linalg.norm(coefs, ord=2)
 
         for i, (word, vec) in enumerate(self.word_to_vec.items()):
             self.word_to_id[word] = i
