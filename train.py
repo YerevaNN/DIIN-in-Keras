@@ -26,7 +26,6 @@ class Gym(object):
 
         self.model = model
         self.logger = logger
-        self.logger.set_model(self.model)
 
         ''' Data '''
         self.train_data = train_data
@@ -48,6 +47,7 @@ class Gym(object):
         self.model.compile(optimizer=self.current_optimizer,
                            loss='categorical_crossentropy',
                            metrics=['accuracy'])
+        self.logger.set_model(self.model)
         print('Using optimizer:', self.current_optimizer.__class__.__name__)
 
     def train(self, batch_size=70, eval_interval=500, shuffle=True):
@@ -76,8 +76,8 @@ class Gym(object):
 
             # Switch optimizer if it's necessary
             no_progress_steps += 1
-            if test_loss < best_loss:
-                best_loss = test_loss
+            if dev_loss < best_loss:
+                best_loss = dev_loss
                 no_progress_steps = 0
 
             if no_progress_steps >= self.current_switch_step:
