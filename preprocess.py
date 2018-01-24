@@ -75,7 +75,7 @@ class BasePreprocessor(object):
         self.unique_words           = set(self.all_words)
         self.unique_parts_of_speech = set(self.all_parts_of_speech)
 
-    def init_word_to_vecs(self, vectors_file_path, needed_words):
+    def init_word_to_vecs(self, vectors_file_path, needed_words, normalize=True):
         """
         Initialize:
             {word -> vec} mapping
@@ -96,6 +96,8 @@ class BasePreprocessor(object):
 
                 if word in needed_words:
                     coefs = np.asarray(values[1:], dtype='float32')
+                    if normalize:
+                        coefs /= np.linalg.norm(coefs)
                     self.word_to_vec[word] = coefs
 
         word_vector_size = len(self.word_to_vec['hello'])
