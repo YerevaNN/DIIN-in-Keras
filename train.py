@@ -71,6 +71,7 @@ class Gym(object):
 
             # Evaluate
             test_loss, dev_loss = self.evaluate(eval_step=eval_step, batch_size=batch_size)
+            eval_step += 1
 
             # Switch optimizer if it's necessary
             no_progress_steps += 1
@@ -94,8 +95,8 @@ class Gym(object):
                     train_batch_start = 0
 
     def evaluate(self, eval_step, batch_size=None):
-        [test_loss, test_acc] = model.evaluate(test_data[:-1], test_data[-1], batch_size=batch_size)
-        [dev_loss,  dev_acc]  = model.evaluate(dev_data[:-1],  dev_data[-1],  batch_size=batch_size)
+        [test_loss, test_acc] = model.evaluate(self.test_data[:-1], self.test_data[-1], batch_size=batch_size)
+        [dev_loss,  dev_acc]  = model.evaluate(self.dev_data[:-1],  self.dev_data[-1],  batch_size=batch_size)
         self.logger.on_epoch_end(epoch=eval_step, logs={'test_acc': test_acc, 'test_loss': test_loss})
         self.logger.on_epoch_end(epoch=eval_step, logs={'dev_acc':  dev_acc,  'dev_loss':  dev_loss})
         model.save(self.model_save_dir + 'epoch={}-tloss={}-tacc={}.model'.format(eval_step, test_loss, test_acc))
