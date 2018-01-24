@@ -45,7 +45,9 @@ class Gym(object):
         self.optimizer_id += 1
         previous_optimizer = self.current_optimizer
         self.current_optimizer, self.current_switch_step = self.optimizers[self.optimizer_id]
-        self.current_optimizer.optimizer.iterations = previous_optimizer.optimizer.iterations
+        # Don't reset time counter
+        if previous_optimizer is not None:
+            self.current_optimizer.optimizer.iterations = previous_optimizer.optimizer.iterations
         self.model.compile(optimizer=self.current_optimizer,
                            loss='categorical_crossentropy',
                            metrics=['accuracy'])
