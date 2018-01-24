@@ -48,6 +48,7 @@ class Gym(object):
         self.model.compile(optimizer=self.current_optimizer,
                            loss='categorical_crossentropy',
                            metrics=['accuracy'])
+        print('Using optimizer:', self.current_optimizer.__class__.__name__)
 
     def train(self, batch_size=70, eval_interval=500, shuffle=True):
         print('train:\t', [d.shape for d in self.train_data])
