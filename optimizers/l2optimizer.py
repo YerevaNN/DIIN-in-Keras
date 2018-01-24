@@ -57,7 +57,7 @@ class L2Optimizer(Optimizer):
 
     def get_updates(self, loss, params):
         loss = self.get_l2_loss(loss=loss, params=params, iterations=self.optimizer.iterations)
-        return self.optimizer.get_updates(self, loss=loss, params=params)
+        return self.optimizer.get_updates(loss=loss, params=params)
 
     def get_config(self):
         config = {'optimizer':                  serialize(self.optimizer),
