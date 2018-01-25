@@ -135,7 +135,7 @@ if __name__ == '__main__':
     ''' Prepare the model and optimizers '''
     adam = L2Optimizer(Adam())
     adadelta = L2Optimizer(Adadelta(lr=0.5, rho=0.95, epsilon=1e-8))
-    sgd = L2Optimizer(SGD(lr=3e-4))
+    sgd = L2Optimizer(SGD(lr=1e-3))
     model = DIIN(p=train_data[0].shape[-1],  # or None
                  h=train_data[3].shape[-1],  # or None
                  word_embedding_weights=word_embedding_weights,
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     ''' Initialize Gym for training '''
     gym = Gym(model=model,
               train_data=train_data, test_data=test_data, dev_data=dev_data,
-              optimizers=[(adam, 2), (adadelta, 3), (sgd, 100000)],
+              optimizers=[(adam, 3), (adadelta, 4), (sgd, 100000)],
               logger=TensorBoard(log_dir=args.logdir),
               models_save_dir=args.models_dir)
 
