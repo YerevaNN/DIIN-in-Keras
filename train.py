@@ -93,7 +93,7 @@ class Gym(object):
                 [loss, acc] = model.train_on_batch(
                     [train_input[train_batch_start: train_batch_start + batch_size] for train_input in train_inputs],
                     train_labels[train_batch_start: train_batch_start + batch_size])
-                self.logger.on_epoch_end(epoch=train_step, logs={'acc': acc, 'loss': loss})
+                self.logger.on_epoch_end(epoch=train_step, logs={'train_acc': acc, 'train_loss': loss})
                 train_step += 1
                 train_batch_start += batch_size
                 if train_batch_start > len(train_inputs[0]):
@@ -112,6 +112,7 @@ class Gym(object):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size',         default=70,     help='Batch size',                          type=int)
+    parser.add_argument('--eval_interval',      default=500,    help='Evaluation Interval (#batches)',      type=int)
     parser.add_argument('--char_embed_size',    default=8,      help='Size of character embedding',         type=int)
     parser.add_argument('--char_conv_filters',  default=100,    help='Number of character conv filters',    type=int)
     parser.add_argument('--load_dir',           default='data',             help='Directory of the data',   type=str)
@@ -151,4 +152,4 @@ if __name__ == '__main__':
               logger=TensorBoard(log_dir=args.logdir),
               models_save_dir=args.models_dir)
 
-    gym.train(batch_size=70, eval_interval=500, shuffle=True)
+    gym.train(batch_size=args.batch_size, eval_interval=args.eval_interval, shuffle=True)
