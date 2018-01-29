@@ -43,16 +43,12 @@ class Gym(object):
 
     def switch_optimizer(self):
         self.optimizer_id += 1
-        previous_optimizer = self.current_optimizer
         self.current_optimizer, self.current_switch_step = self.optimizers[self.optimizer_id]
-        # Don't reset time counter
-        if previous_optimizer is not None:
-            self.current_optimizer.optimizer.iterations = previous_optimizer.optimizer.iterations
         self.model.compile(optimizer=self.current_optimizer,
                            loss='categorical_crossentropy',
                            metrics=['accuracy'])
         self.logger.set_model(self.model)
-        print('Using optimizer:', self.current_optimizer.__class__.__name__)
+        print('Switching to number {} optimizer'.format(self.current_optimizer))
 
     def train(self, batch_size=70, eval_interval=500, shuffle=True):
         print('train:\t', [d.shape for d in self.train_data])
@@ -136,7 +132,7 @@ if __name__ == '__main__':
     ''' Prepare the model and optimizers '''
     adam = L2Optimizer(Adam())
     adadelta = L2Optimizer(Adadelta(lr=0.5, rho=0.95, epsilon=1e-8))
-    sgd = L2Optimizer(SGD(lr=1e-3))
+    sgd = L2Optimizer(SGD(lr=3e-3))
     model = DIIN(p=train_data[0].shape[-1],  # or None
                  h=train_data[3].shape[-1],  # or None
                  word_embedding_weights=word_embedding_weights,

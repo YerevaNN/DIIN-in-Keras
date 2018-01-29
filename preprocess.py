@@ -190,13 +190,15 @@ class BasePreprocessor(object):
 
         syntactical_premise = []
         syntactical_hypothesis = []
-        for word, hot in zip(premise_words, premise_hot):
+        premise_lower_words = [word.lower() for word in premise_words]
+        hypothesis_lower_words = [word.lower() for word in hypothesis_words]
+        for word, hot in zip(premise_lower_words, premise_hot):
             l_hot = list(hot)
-            l_hot.append(word in hypothesis_words)
+            l_hot.append(word in hypothesis_lower_words)
             syntactical_premise.append(np.array(l_hot))
-        for word, hot in zip(hypothesis_words, hypothesis_hot):
+        for word, hot in zip(hypothesis_lower_words, hypothesis_hot):
             l_hot = list(hot)
-            l_hot.append(word in premise_words)
+            l_hot.append(word in premise_lower_words)
             syntactical_hypothesis.append(np.array(l_hot))
         syntactical_premise    = np.array(syntactical_premise)
         syntactical_hypothesis = np.array(syntactical_hypothesis)
@@ -209,7 +211,7 @@ class BasePreprocessor(object):
         premise_chars    = pad_sequences(premise_chars,    maxlen=chars_per_word, padding='post', truncating='post')
         hypothesis_chars = pad_sequences(hypothesis_chars, maxlen=chars_per_word, padding='post', truncating='post')
 
-        return (np.array(premise_word_ids),    pad(premise_chars, max_words_p),    pad(syntactical_premise, max_words_p),
+        return (np.array(premise_word_ids),    pad(premise_chars,    max_words_p), pad(syntactical_premise,    max_words_p),
                 np.array(hypothesis_word_ids), pad(hypothesis_chars, max_words_h), pad(syntactical_hypothesis, max_words_h))
 
     def parse(self, input_file_path, data_saver, max_words_p=33, max_words_h=20, chars_per_word=13):
