@@ -11,9 +11,9 @@ from layers.interaction import Interaction
 
 class DIIN(Model):
     def __init__(self,
-                 p,
-                 h,
-                 word_embedding_weights,
+                 p=None,
+                 h=None,
+                 word_embedding_weights=None,
                  char_embedding_size=30,
                  chars_per_word=14,
                  syntactical_feature_size=50,
@@ -28,7 +28,7 @@ class DIIN(Model):
                  n=8,
                  nb_dense_blocks=3,
                  nb_labels=3,
-                 name='DIIN'):
+                 inputs=None, outputs=None, name='DIIN'):
         """
         :ref https://openreview.net/forum?id=r1dHXnH6-&noteId=r1dHXnH6-
 
@@ -50,6 +50,12 @@ class DIIN(Model):
         :param nb_dense_blocks: number of dense blocks in densenet
         :param nb_labels: number of labels
         """
+
+        if inputs or outputs:
+            super(DIIN, self).__init__(inputs=inputs, outputs=outputs, name=name)
+            return
+
+        assert word_embedding_weights is not None
 
         '''Embedding layer'''
         # 1. Word embedding input

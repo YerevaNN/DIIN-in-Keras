@@ -22,7 +22,7 @@ from keras.layers.pooling import MaxPooling2D
 class DenseNet(Model):
     def __init__(self, input_shape=None, depth=40, nb_dense_block=3, growth_rate=12, nb_layers_per_block=-1,
                  compression=1.0, dropout_rate=0., input_tensor=None, apply_batch_norm=False,
-                 include_top=True, classes=10, activation='softmax', name='DenseNet'):
+                 include_top=True, classes=10, activation='softmax', name='DenseNet', inputs=None, outputs=None):
         """Instantiate the DenseNet architecture,
             Note that when using TensorFlow,
             for best performance you should set
@@ -66,6 +66,10 @@ class DenseNet(Model):
             # Returns
                 A Keras model instance.
             """
+
+        if inputs or outputs:
+            super(DenseNet, self).__init__(inputs, outputs, name=name)
+            return
 
         if activation not in ['softmax', 'sigmoid']:
             raise ValueError('activation must be one of "softmax" or "sigmoid"')
