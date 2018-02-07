@@ -59,13 +59,11 @@ class ChunkDataManager(object):
         return data
 
     def save(self, data):
-        print('Saving data of shapes:')
         if not os.path.exists(self.save_data_path):
             os.mkdir(self.save_data_path)
+        print('Saving data of shapes:', [item.shape for item in data], flush=True)
         for i, item in tqdm(enumerate(data)):
-            print(item.shape, end='\t')
             np.save(self.save_data_path + '/' + str(i) + '.npy', item)
-        print('\n')
 
 
 def broadcast_last_axis(x):
