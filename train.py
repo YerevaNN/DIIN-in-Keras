@@ -126,6 +126,7 @@ if __name__ == '__main__':
     parser.add_argument('--omit_chars',                  action='store_true')
     parser.add_argument('--omit_syntactical_features',   action='store_true')
     parser.add_argument('--omit_exact_match',            action='store_true')
+    parser.add_argument('--train_word_embeddings',       action='store_true')
     args = parser.parse_args()
 
     ''' Prepare data '''
@@ -149,6 +150,7 @@ if __name__ == '__main__':
                  syntactical_feature_size=syntactical_feature_size,
                  char_embedding_size=args.char_embed_size,
                  char_conv_filters=args.char_conv_filters,
+                 train_word_embeddings=args.train_word_embeddings,
                  include_word_vectors=not args.omit_word_vectors,
                  include_chars=not args.omit_chars,
                  include_syntactical_features=not args.omit_syntactical_features,

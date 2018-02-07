@@ -29,6 +29,7 @@ class DIIN(Model):
                  n=8,
                  nb_dense_blocks=3,
                  nb_labels=3,
+                 train_word_embeddings=True,
                  include_word_vectors=True,
                  include_chars=True,
                  include_syntactical_features=True,
@@ -76,7 +77,7 @@ class DIIN(Model):
             word_embedding = Embedding(input_dim=word_embedding_weights.shape[0],
                                        output_dim=word_embedding_weights.shape[1],
                                        weights=[word_embedding_weights],
-                                       trainable=True,
+                                       trainable=train_word_embeddings,
                                        name='WordEmbedding')
             premise_word_embedding    = word_embedding(premise_word_input)
             hypothesis_word_embedding = word_embedding(hypothesis_word_input)
@@ -101,7 +102,7 @@ class DIIN(Model):
 
             # Share weights of character-level embedding for premise and hypothesis
             character_embedding_layer = TimeDistributed(Sequential([
-                Embedding(input_dim=128, output_dim=char_embedding_size, input_length=chars_per_word),
+                Embedding(input_dim=100, output_dim=char_embedding_size, input_length=chars_per_word),
                 Conv1D(filters=char_conv_filters, kernel_size=char_conv_kernel_size),
                 GlobalMaxPooling1D()
             ]), name='CharEmbedding')
