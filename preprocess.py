@@ -140,8 +140,9 @@ class BasePreprocessor(object):
         not_present_words, not_present_vectors = self.get_not_present_word_vectors(not_present_words=not_present_words,
                                                                                    word_vector_size=word_vector_size,
                                                                                    normalize=normalize)
-        words += not_present_words
-        self.vectors += not_present_vectors
+        words, self.vectors = zip(*[(word, vec) for word, vec in zip(words, self.vectors) if word in needed_words])
+        words = list(words) + not_present_words
+        self.vectors = list(self.vectors) + not_present_vectors
 
         print('Initializing word mappings...')
         self.word_to_vec = {word: vec for word, vec in zip(words, self.vectors)}
