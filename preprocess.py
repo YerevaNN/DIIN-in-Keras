@@ -147,7 +147,7 @@ class BasePreprocessor(object):
         self.vectors = np.array(self.vectors)
 
         assert len(self.word_to_vec) == len(self.word_to_id) == len(self.vectors)
-        print('%d words in total are now initialized!', len(self.word_to_vec))
+        print(len(self.word_to_vec), 'words in total are now initialized!')
 
     def init_chars(self, words):
         """
@@ -157,11 +157,11 @@ class BasePreprocessor(object):
         for word in words:
             chars = chars.union(set(word))
 
-        self.char_to_id = {char: i for i, char in enumerate(chars)}
+        self.char_to_id = {char: i+1 for i, char in enumerate(chars)}
         print('Chars:', chars)
 
     def init_parts_of_speech(self, parts_of_speech):
-        self.part_of_speech_to_id = {part: i for i, part in enumerate(parts_of_speech)}
+        self.part_of_speech_to_id = {part: i+1 for i, part in enumerate(parts_of_speech)}
         print('Parts of speech:', parts_of_speech)
 
     def init_mappings(self, normalize_word_vectors=False):
@@ -187,6 +187,23 @@ class BasePreprocessor(object):
         res[i] = 1
         return res
 
+    def parse_sentence(self, sentence, max_words, chars_per_word):
+        # Words
+        words, parts_of_speech = self.get_words_with_part_of_speech(sentence)
+        word_ids = [self.word_to_id[word] for word in words]
+
+        # Syntactical features
+        syntactical_features = [self.part_of_speech_to_id[part] for part in parts_of_speech]
+        syntactical_one_hot = np.eye(len(self.part_of_speech_to_id) + 2)[syntactical_features]  # Convert to 1-hot
+
+        # Chars
+        chars = [[self.char_to_id[c] for c in word] for word in words]
+        chars = pad_sequences(chars, maxlen=chars_per_word, padding='post', truncating='post')
+        
+        return (words, parts_of_speech, np.array(word_ids),
+                syntactical_features, pad(syntactical_one_hot, max_words),
+                pad(chars, max_words))
+
     def parse_one(self, premise, hypothesis, max_words_p, max_words_h, chars_per_word):
         """
         :param premise: sentence
@@ -197,43 +214,29 @@ class BasePreprocessor(object):
         :return: (premise_word_ids,    premise_chars,    syntactical_premise,
                   hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
         """
-        # Words
-        premise_words,      premise_parts_of_speech    = self.get_words_with_part_of_speech(premise)
-        hypothesis_words,   hypothesis_parts_of_speech = self.get_words_with_part_of_speech(hypothesis)
-        premise_word_ids    = [self.word_to_id[word] for word in premise_words]
-        hypothesis_word_ids = [self.word_to_id[word] for word in hypothesis_words]
+        (premise_words, premise_parts_of_speech, premise_word_ids,
+         premise_syntactical_features, premise_syntactical_one_hot,
+         premise_chars) = self.parse_sentence(sentence=premise, max_words=max_words_p, chars_per_word=chars_per_word)
 
-        # Syntactical features
-        syntactical_premise    = [self.part_of_speech_to_id[part] for part in premise_parts_of_speech]
-        syntactical_hypothesis = [self.part_of_speech_to_id[part] for part in hypothesis_parts_of_speech]
-        premise_hot    = list(np.eye(len(self.part_of_speech_to_id) + 2)[syntactical_premise])       # Convert to 1-hot
-        hypothesis_hot = list(np.eye(len(self.part_of_speech_to_id) + 2)[syntactical_hypothesis])    # Convert to 1-hot
+        (hypothesis_words, hypothesis_parts_of_speech, hypothesis_word_ids,
+         hypothesis_syntactical_features, hypothesis_syntactical_one_hot,
+         hypothesis_chars) = self.parse_sentence(sentence=hypothesis, max_words=max_words_h, chars_per_word=chars_per_word)
 
-        syntactical_premise = []
-        syntactical_hypothesis = []
-        premise_lower_words = [word.lower() for word in premise_words]
-        hypothesis_lower_words = [word.lower() for word in hypothesis_words]
-        for word, hot in zip(premise_lower_words, premise_hot):
-            l_hot = list(hot)
-            l_hot.append(word in hypothesis_lower_words)
-            syntactical_premise.append(np.array(l_hot))
-        for word, hot in zip(hypothesis_lower_words, hypothesis_hot):
-            l_hot = list(hot)
-            l_hot.append(word in premise_lower_words)
-            syntactical_hypothesis.append(np.array(l_hot))
-        syntactical_premise    = np.array(syntactical_premise)
-        syntactical_hypothesis = np.array(syntactical_hypothesis)
+        def calculate_exact_match(source_words, target_words):
+            source_words = [word.lower() for word in source_words]
+            target_words = [word.lower() for word in target_words]
+            target_words = set(target_words)
 
-        # Chars
-        premise_chars = []
-        hypothesis_chars = []
-        for word in premise_words:     premise_chars.append(   [self.char_to_id[c] for c in word])
-        for word in hypothesis_words:  hypothesis_chars.append([self.char_to_id[c] for c in word])
-        premise_chars    = pad_sequences(premise_chars,    maxlen=chars_per_word, padding='post', truncating='post')
-        hypothesis_chars = pad_sequences(hypothesis_chars, maxlen=chars_per_word, padding='post', truncating='post')
+            res = [(word in target_words) for word in source_words]
+            return np.array(res)
 
-        return (np.array(premise_word_ids),    pad(premise_chars,    max_words_p), pad(syntactical_premise,    max_words_p),
-                np.array(hypothesis_word_ids), pad(hypothesis_chars, max_words_h), pad(syntactical_hypothesis, max_words_h))
+        premise_exact_match    = calculate_exact_match(premise_words, hypothesis_words)
+        hypothesis_exact_match = calculate_exact_match(hypothesis_words, premise_words)
+
+        return (premise_word_ids, hypothesis_word_ids,
+                premise_chars, hypothesis_chars,
+                premise_syntactical_one_hot, hypothesis_syntactical_one_hot,
+                premise_exact_match, hypothesis_exact_match)
 
     def parse(self, input_file_path, data_saver, max_words_p=33, max_words_h=20, chars_per_word=13):
         """
@@ -245,8 +248,9 @@ class BasePreprocessor(object):
         :return: (premise_word_ids,    premise_chars,    syntactical_premise,
                   hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
         """
-        # res = [input_word_p, input_char_p, input_syn_p, input_word_h, input_char_h, input_syn_h, labels]
-        res = [[], [], [], [], [], [], []]
+        # res = [premise_word_ids, hypothesis_word_ids, premise_chars, hypothesis_chars,
+        # premise_syntactical_one_hot, hypothesis_syntactical_one_hot, premise_exact_match, hypothesis_exact_match]
+        res = [[], [], [], [], [], [], [], [], []]
 
         data = self.load_data(input_file_path)
         for sample in tqdm(data):
@@ -267,7 +271,7 @@ class BasePreprocessor(object):
                 res_item.append(parsed_item)
 
         res[0] = pad_sequences(res[0], maxlen=max_words_p, padding='post', truncating='post', value=0.)  # input_word_p
-        res[3] = pad_sequences(res[3], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # input_word_h
+        res[1] = pad_sequences(res[1], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # input_word_h
         res = (np.array(item) for item in res)
         data_saver.save(res)
         return res
@@ -323,8 +327,8 @@ if __name__ == '__main__':
     if args.dataset == 'snli':
         snli_preprocessor = SNLIPreprocessor()
         path = get_snli_file_path()
-        train_path = path + 'snli_1.0_train.jsonl'
-        test_path  = path + 'snli_1.0_test.jsonl'
+        train_path = path + 'snli_1.0_dev.jsonl'
+        test_path  = path + 'snli_1.0_dev.jsonl'
         dev_path   = path + 'snli_1.0_dev.jsonl'
 
         preprocess(p=args.p, h=args.h, chars_per_word=args.chars_per_word,
