@@ -164,13 +164,6 @@ class BasePreprocessor(object):
         self.part_of_speech_to_id = {part: i+1 for i, part in enumerate(parts_of_speech)}
         print('Parts of speech:', parts_of_speech)
 
-    def init_mappings(self, normalize_word_vectors=False):
-        snli_preprocessor.init_word_to_vectors(vectors_file_path=get_word2vec_file_path(),
-                                               needed_words=self.unique_words,
-                                               normalize=normalize_word_vectors)
-        snli_preprocessor.init_chars(words=self.unique_words)
-        snli_preprocessor.init_parts_of_speech(parts_of_speech=self.unique_parts_of_speech)
-
     def save_word_vectors(self, file_path):
         np.save(file_path, self.vectors)
 
@@ -211,8 +204,10 @@ class BasePreprocessor(object):
         :param max_words_p: maximum number of words in premise
         :param max_words_h: maximum number of words in hypothesis
         :param chars_per_word: number of chars in each word
-        :return: (premise_word_ids,    premise_chars,    syntactical_premise,
-                  hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
+        :return: (premise_word_ids, hypothesis_word_ids,
+                  premise_chars, hypothesis_chars,
+                  premise_syntactical_one_hot, hypothesis_syntactical_one_hot,
+                  premise_exact_match, hypothesis_exact_match)
         """
         (premise_words, premise_parts_of_speech, premise_word_ids,
          premise_syntactical_features, premise_syntactical_one_hot,
@@ -238,15 +233,16 @@ class BasePreprocessor(object):
                 premise_syntactical_one_hot, hypothesis_syntactical_one_hot,
                 premise_exact_match, hypothesis_exact_match)
 
-    def parse(self, input_file_path, data_saver, max_words_p=33, max_words_h=20, chars_per_word=13):
+    def parse(self, input_file_path, max_words_p=33, max_words_h=20, chars_per_word=13):
         """
         :param input_file_path: file to parse data from
-        :param data_saver: manager for saving results
         :param max_words_p: maximum number of words in premise
         :param max_words_h: maximum number of words in hypothesis
         :param chars_per_word: number of chars in each word (padding is applied if not enough)
-        :return: (premise_word_ids,    premise_chars,    syntactical_premise,
-                  hypothesis_word_ids, hypothesis_chars, syntactical_hypothesis)
+        :return: (premise_word_ids, hypothesis_word_ids,
+                  premise_chars, hypothesis_chars,
+                  premise_syntactical_one_hot, hypothesis_syntactical_one_hot,
+                  premise_exact_match, hypothesis_exact_match)
         """
         # res = [premise_word_ids, hypothesis_word_ids, premise_chars, hypothesis_chars,
         # premise_syntactical_one_hot, hypothesis_syntactical_one_hot, premise_exact_match, hypothesis_exact_match]
@@ -273,7 +269,6 @@ class BasePreprocessor(object):
         res[0] = pad_sequences(res[0], maxlen=max_words_p, padding='post', truncating='post', value=0.)  # input_word_p
         res[1] = pad_sequences(res[1], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # input_word_h
         res = (np.array(item) for item in res)
-        data_saver.save(res)
         return res
 
 
@@ -299,19 +294,38 @@ class SNLIPreprocessor(BasePreprocessor):
         return 'entailment', 'contradiction', 'neutral'
 
 
-def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths, word_vector_save_path):
+def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths, word_vector_save_path, normalize_word_vectors,
+               include_word_vectors=True, include_chars=True,
+               include_syntactical_features=True, include_exact_match=True):
+
     preprocessor.get_all_words_with_parts_of_speech([data_path[1] for data_path in data_paths])
     print('Found', len(preprocessor.unique_words), 'unique words')
     print('Found', len(preprocessor.unique_parts_of_speech), 'unique parts of speech')
 
-    preprocessor.init_mappings()
+    # Init mappings of the preprocessor
+    preprocessor.init_word_to_vectors(vectors_file_path=get_word2vec_file_path(),
+                                      needed_words=preprocessor.unique_words,
+                                      normalize=normalize_word_vectors)
+    preprocessor.init_chars(words=preprocessor.unique_words)
+    preprocessor.init_parts_of_speech(parts_of_speech=preprocessor.unique_parts_of_speech)
+
+    # Process and save the data
     preprocessor.save_word_vectors(word_vector_save_path)
     for dataset, input_path in data_paths:
-        preprocessor.parse(input_file_path=input_path,
-                           data_saver=ChunkDataManager(save_data_path=os.path.join(save_dir, dataset)),
-                           max_words_p=p,
-                           max_words_h=h,
-                           chars_per_word=chars_per_word)
+        data = preprocessor.parse(input_file_path=input_path,
+                                  max_words_p=p,
+                                  max_words_h=h,
+                                  chars_per_word=chars_per_word)
+
+        # Determine which part of data we need to dump
+        save_data = []
+        if include_word_vectors:            save_data += [data[0], data[1]]
+        if include_chars:                   save_data += [data[2], data[3]]
+        if include_syntactical_features:    save_data += [data[4], data[5]]
+        if include_exact_match:             save_data += [data[6], data[7]]
+
+        data_saver = ChunkDataManager(save_data_path=os.path.join(save_dir, dataset))
+        data_saver.save(save_data)
 
 
 if __name__ == '__main__':
@@ -322,19 +336,29 @@ if __name__ == '__main__':
     parser.add_argument('--save_dir',       default='data/',    help='Save directory of data',              type=str)
     parser.add_argument('--dataset',        default='snli',     help='Which preprocessor to use',           type=str)
     parser.add_argument('--word_vec_path',  default='data/word-vectors.npy', help='Save path word vectors', type=str)
+    parser.add_argument('--normalize_word_vectors',      action='store_true')
+    parser.add_argument('--omit_word_vectors',           action='store_true')
+    parser.add_argument('--omit_chars',                  action='store_true')
+    parser.add_argument('--omit_syntactical_features',   action='store_true')
+    parser.add_argument('--omit_exact_match',            action='store_true')
     args = parser.parse_args()
 
     if args.dataset == 'snli':
         snli_preprocessor = SNLIPreprocessor()
         path = get_snli_file_path()
-        train_path = path + 'snli_1.0_dev.jsonl'
-        test_path  = path + 'snli_1.0_dev.jsonl'
-        dev_path   = path + 'snli_1.0_dev.jsonl'
+        train_path = os.path.join(path, 'snli_1.0_train.jsonl')
+        test_path  = os.path.join(path, 'snli_1.0_test.jsonl')
+        dev_path   = os.path.join(path, 'snli_1.0_dev.jsonl')
 
         preprocess(p=args.p, h=args.h, chars_per_word=args.chars_per_word,
                    preprocessor=snli_preprocessor,
                    save_dir=args.save_dir,
                    data_paths=[('train', train_path), ('test', test_path), ('dev', dev_path)],
-                   word_vector_save_path=args.word_vec_path)
+                   normalize_word_vectors=args.normalize_word_vectors,
+                   word_vector_save_path=args.word_vec_path,
+                   include_word_vectors=not args.omit_word_vectors,
+                   include_chars=not args.omit_chars,
+                   include_syntactical_features=not args.omit_syntactical_features,
+                   include_exact_match=not args.omit_exact_match)
     else:
         raise ValueError('couldn\'t find implementation for specified dataset')
