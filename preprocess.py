@@ -51,7 +51,7 @@ class BasePreprocessor(object):
         seen_words = set()
         words = []
         vectors = []
-        print('Loading', file_path, flush=True)
+        print('Loading', file_path)
         with io.open(file_path, mode='r', encoding='utf-8') as f:
             for line in tqdm(f):
                 values = line.strip(' \n').split(separator)
