@@ -270,6 +270,8 @@ class BasePreprocessor(object):
 
         res[0] = pad_sequences(res[0], maxlen=max_words_p, padding='post', truncating='post', value=0.)  # input_word_p
         res[1] = pad_sequences(res[1], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # input_word_h
+        res[6] = pad_sequences(res[6], maxlen=max_words_p, padding='post', truncating='post', value=0.)  # exact_match_p
+        res[7] = pad_sequences(res[7], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # exact_match_h
         res = [np.array(item) for item in res]
         return res
 
@@ -323,10 +325,11 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths,
 
         # Determine which part of data we need to dump
         save_data = []
-        if include_word_vectors:            save_data += data[0:2]
-        if include_chars:                   save_data += data[2:4]
-        if include_syntactical_features:    save_data += data[4:6]
-        if include_exact_match:             save_data += data[6:8]
+        if include_word_vectors:            save_data += data[0:2]  # Word vectors
+        if include_chars:                   save_data += data[2:4]  # Character features
+        if include_syntactical_features:    save_data += data[4:6]  # Syntactical POS tags
+        if include_exact_match:             save_data += data[6:8]  # Exact match feature
+        save_data.append(data[8])                                   # Label
 
         data_saver = ChunkDataManager(save_data_path=os.path.join(save_dir, dataset))
         data_saver.save(save_data)

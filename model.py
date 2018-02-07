@@ -1,6 +1,7 @@
 from keras import backend as K
 from keras.engine import Model
-from keras.layers import Input, Dense, Conv2D, Embedding, Conv1D, TimeDistributed, GlobalMaxPooling1D, Concatenate
+from keras.layers import Input, Dense, Conv2D, Embedding, Conv1D, TimeDistributed, GlobalMaxPooling1D, Concatenate, \
+    Reshape
 from keras.models import Sequential
 
 from feature_extractors.densenet import DenseNet
@@ -28,6 +29,10 @@ class DIIN(Model):
                  n=8,
                  nb_dense_blocks=3,
                  nb_labels=3,
+                 include_word_vectors=True,
+                 include_chars=True,
+                 include_syntactical_features=True,
+                 include_exact_match=True,
                  inputs=None, outputs=None, name='DIIN'):
         """
         :ref https://openreview.net/forum?id=r1dHXnH6-&noteId=r1dHXnH6-
@@ -56,52 +61,79 @@ class DIIN(Model):
             return
 
         assert word_embedding_weights is not None
+        inputs = []
+        premise_embeddings = []
+        hypothesis_embeddings = []
 
         '''Embedding layer'''
         # 1. Word embedding input
-        premise_word_input    = Input(shape=(p,), dtype='int64', name='PremiseWordInput')
-        hypothesis_word_input = Input(shape=(h,), dtype='int64', name='HypothesisWordInput')
+        if include_word_vectors:
+            premise_word_input    = Input(shape=(p,), dtype='int64', name='PremiseWordInput')
+            hypothesis_word_input = Input(shape=(h,), dtype='int64', name='HypothesisWordInput')
+            inputs.append(premise_word_input)
+            inputs.append(hypothesis_word_input)
 
-        print(word_embedding_weights.shape)
+            word_embedding = Embedding(input_dim=word_embedding_weights.shape[0],
+                                       output_dim=word_embedding_weights.shape[1],
+                                       weights=[word_embedding_weights],
+                                       trainable=True,
+                                       name='WordEmbedding')
+            premise_word_embedding    = word_embedding(premise_word_input)
+            hypothesis_word_embedding = word_embedding(hypothesis_word_input)
 
-        word_embedding = Embedding(input_dim=word_embedding_weights.shape[0],
-                                   output_dim=word_embedding_weights.shape[1],
-                                   weights=[word_embedding_weights],
-                                   trainable=True,
-                                   name='WordEmbedding')
-        premise_word_embedding    = word_embedding(premise_word_input)
-        hypothesis_word_embedding = word_embedding(hypothesis_word_input)
-
-        premise_word_embedding    = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
-                                                    decay_interval=dropout_decay_interval,
-                                                    decay_rate=dropout_decay_rate,
-                                                    name='PremiseWordEmbeddingDropout')(premise_word_embedding)
-        hypothesis_word_embedding = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
-                                                    decay_interval=dropout_decay_interval,
-                                                    decay_rate=dropout_decay_rate,
-                                                    name='HypothesisWordEmbeddingDropout')(hypothesis_word_embedding)
+            premise_word_embedding    = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
+                                                        decay_interval=dropout_decay_interval,
+                                                        decay_rate=dropout_decay_rate,
+                                                        name='PremiseWordEmbeddingDropout')(premise_word_embedding)
+            hypothesis_word_embedding = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,
+                                                        decay_interval=dropout_decay_interval,
+                                                        decay_rate=dropout_decay_rate,
+                                                        name='HypothesisWordEmbeddingDropout')(hypothesis_word_embedding)
+            premise_embeddings.append(premise_word_embedding)
+            hypothesis_embeddings.append(hypothesis_word_embedding)
 
         # 2. Character input
-        premise_char_input    = Input(shape=(p, chars_per_word,), name='PremiseCharInput')
-        hypothesis_char_input = Input(shape=(h, chars_per_word,), name='HypothesisCharInput')
+        if include_chars:
+            premise_char_input    = Input(shape=(p, chars_per_word,), name='PremiseCharInput')
+            hypothesis_char_input = Input(shape=(h, chars_per_word,), name='HypothesisCharInput')
+            inputs.append(premise_char_input)
+            inputs.append(hypothesis_char_input)
 
-        # Share weights of character-level embedding for premise and hypothesis
-        character_embedding_layer = TimeDistributed(Sequential([
-            Embedding(input_dim=128, output_dim=char_embedding_size, input_length=chars_per_word),
-            Conv1D(filters=char_conv_filters, kernel_size=char_conv_kernel_size),
-            GlobalMaxPooling1D()
-        ]), name='CharEmbedding')
-        character_embedding_layer.build(input_shape=(None, None, chars_per_word))
-        premise_char_embedding    = character_embedding_layer(premise_char_input)
-        hypothesis_char_embedding = character_embedding_layer(hypothesis_char_input)
+            # Share weights of character-level embedding for premise and hypothesis
+            character_embedding_layer = TimeDistributed(Sequential([
+                Embedding(input_dim=128, output_dim=char_embedding_size, input_length=chars_per_word),
+                Conv1D(filters=char_conv_filters, kernel_size=char_conv_kernel_size),
+                GlobalMaxPooling1D()
+            ]), name='CharEmbedding')
+            character_embedding_layer.build(input_shape=(None, None, chars_per_word))
+            premise_char_embedding    = character_embedding_layer(premise_char_input)
+            hypothesis_char_embedding = character_embedding_layer(hypothesis_char_input)
+            premise_embeddings.append(premise_char_embedding)
+            hypothesis_embeddings.append(hypothesis_char_embedding)
 
         # 3. Syntactical features
-        premise_syntactical_input    = Input(shape=(p, syntactical_feature_size,), name='PremiseSyntacticalInput')
-        hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,), name='HypothesisSyntacticalInput')
+        if include_syntactical_features:
+            premise_syntactical_input    = Input(shape=(p, syntactical_feature_size,), name='PremiseSyntacticalInput')
+            hypothesis_syntactical_input = Input(shape=(h, syntactical_feature_size,), name='HypothesisSyntacticalInput')
+            inputs.append(premise_syntactical_input)
+            inputs.append(hypothesis_syntactical_input)
+            premise_embeddings.append(premise_syntactical_input)
+            hypothesis_embeddings.append(hypothesis_syntactical_input)
+
+        # 4. One-hot exact match feature
+        if include_exact_match:
+            premise_exact_match_input    = Input(shape=(p,), name='PremiseExactMatchInput')
+            hypothesis_exact_match_input = Input(shape=(h,), name='HypothesisExactMatchInput')
+            premise_exact_match    = Reshape(target_shape=(p, 1,))(premise_exact_match_input)
+            hypothesis_exact_match = Reshape(target_shape=(h, 1,))(hypothesis_exact_match_input)
+            inputs.append(premise_exact_match_input)
+            inputs.append(hypothesis_exact_match_input)
+            premise_embeddings.append(premise_exact_match)
+            hypothesis_embeddings.append(hypothesis_exact_match)
 
         # Concatenate all features
-        premise_embedding    = Concatenate(name='PremiseEmbedding')(   [premise_word_embedding,    premise_char_embedding,    premise_syntactical_input])
-        hypothesis_embedding = Concatenate(name='HypothesisEmbedding')([hypothesis_word_embedding, hypothesis_char_embedding, hypothesis_syntactical_input])
+        premise_embedding    = Concatenate(name='PremiseEmbedding')(premise_embeddings)
+        hypothesis_embedding = Concatenate(name='HypothesisEmbedding')(hypothesis_embeddings)
         d = K.int_shape(hypothesis_embedding)[-1]
 
         '''Encoding layer'''
@@ -127,7 +159,4 @@ class DIIN(Model):
                                    decay_rate=dropout_decay_rate,
                                    name='Features')(feature_extractor)
         out = Dense(units=nb_labels, activation='softmax', name='Output')(features)
-        super(DIIN, self).__init__(inputs=[premise_word_input,    premise_char_input,    premise_syntactical_input,
-                                           hypothesis_word_input, hypothesis_char_input, hypothesis_syntactical_input],
-                                   outputs=out,
-                                   name=name)
+        super(DIIN, self).__init__(inputs=inputs, outputs=out, name=name)

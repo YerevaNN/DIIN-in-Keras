@@ -43,6 +43,10 @@ class Gym(object):
 
     def switch_optimizer(self):
         self.optimizer_id += 1
+        if self.optimizer_id >= len(self.optimizers):
+            print('Finished training...')
+            exit(0)
+
         self.current_optimizer, self.current_switch_step = self.optimizers[self.optimizer_id]
         self.model.compile(optimizer=self.current_optimizer,
                            loss='categorical_crossentropy',
@@ -118,6 +122,10 @@ if __name__ == '__main__':
     parser.add_argument('--models_dir',         default='models/',          help='Where to save models',    type=str)
     parser.add_argument('--logdir',             default='logs',             help='Tensorboard logs dir',    type=str)
     parser.add_argument('--word_vec_path', default='data/word-vectors.npy', help='Save path word vectors',  type=str)
+    parser.add_argument('--omit_word_vectors',           action='store_true')
+    parser.add_argument('--omit_chars',                  action='store_true')
+    parser.add_argument('--omit_syntactical_features',   action='store_true')
+    parser.add_argument('--omit_exact_match',            action='store_true')
     args = parser.parse_args()
 
     ''' Prepare data '''
@@ -127,27 +135,29 @@ if __name__ == '__main__':
     dev_data   = ChunkDataManager(load_data_path=os.path.join(args.load_dir, 'dev')).load()
 
     ''' Getting dimensions of the input '''
-    chars_per_word = train_data[1].shape[-1]
-    syntactical_feature_size = train_data[2].shape[-1]
-    assert chars_per_word == train_data[4].shape[-1]
-    assert syntactical_feature_size == train_data[5].shape[-1]
+    chars_per_word = train_data[3].shape[-1]
+    syntactical_feature_size = train_data[5].shape[-1]
 
     ''' Prepare the model and optimizers '''
     adam = L2Optimizer(Adam())
     adadelta = L2Optimizer(Adadelta(lr=0.5, rho=0.95, epsilon=1e-8))
     sgd = L2Optimizer(SGD(lr=3e-3))
     model = DIIN(p=train_data[0].shape[-1],  # or None
-                 h=train_data[3].shape[-1],  # or None
+                 h=train_data[1].shape[-1],  # or None
                  word_embedding_weights=word_embedding_weights,
                  chars_per_word=chars_per_word,
                  syntactical_feature_size=syntactical_feature_size,
                  char_embedding_size=args.char_embed_size,
-                 char_conv_filters=args.char_conv_filters)
+                 char_conv_filters=args.char_conv_filters,
+                 include_word_vectors=not args.omit_word_vectors,
+                 include_chars=not args.omit_chars,
+                 include_syntactical_features=not args.omit_syntactical_features,
+                 include_exact_match=not args.omit_exact_match)
 
     ''' Initialize Gym for training '''
     gym = Gym(model=model,
               train_data=train_data, test_data=test_data, dev_data=dev_data,
-              optimizers=[(adam, 3), (adadelta, 4), (sgd, 100000)],
+              optimizers=[(adam, 3), (adadelta, 4), (sgd, 7)],
               logger=TensorBoard(log_dir=args.logdir),
               models_save_dir=args.models_dir)
 
