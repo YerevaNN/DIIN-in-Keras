@@ -1,9 +1,9 @@
 # Reproducing Densely Interactive Inference Network in Keras
 
 This repository aims to reproduce the results obtained in
-[Natural Language Inference over Interaction Space](https://arxiv.org/abs/1709.04348) paper.
+[Natural Language Inference over Interaction Space](https://arxiv.org/abs/1709.04348) paper. <br/>
 We've chosen this paper as a project for 
-[reproducibility challenge](http://www.cs.mcgill.ca/~jpineau/ICLR2018-ReproducibilityChallenge.html) organized by ICLR.
+[reproducibility challenge](http://www.cs.mcgill.ca/~jpineau/ICLR2018-ReproducibilityChallenge.html) organized by ICLR. <br/>
 DIIN paper in OpenReview: https://openreview.net/forum?id=r1dHXnH6-&noteId=r1dHXnH6-
 
 
@@ -14,18 +14,17 @@ we need to classify those between these 3 classes (`entailment`, `contradiction`
 
 Several samples from MultiNLI dataset are presented below which are copied from DIIN paper.
 
-`Premise`: The FCC has created two tiers of small business for this service with the
-approval of the SBA.
-`Hypothesis`: The SBA has given the go-ahead for the FCC to divide this service into
-two tiers of small business.
-`Label` entailment.
+`Premise`: The FCC has created two tiers of small business for this service with the approval of the SBA. <br/>
+`Hypothesis`: The SBA has given the go-ahead for the FCC to divide this service into two tiers of small business. <br/>
+`Label`: entailment.
 
-`Premise`: He was crying like his mother had just walloped him.
-`Hypothesis`: He was crying like his mother hit him with a spoon.
+`Premise`: He was crying like his mother had just walloped him. <br/>
+`Hypothesis`: He was crying like his mother hit him with a spoon. <br/>
 `Label`: Neutral
 
-`Premise`: Later, Tom testified against John so as to avoid the electric chair.
-`Hypothesis`: Tom refused to turn on his friend, even though he was slated to be executed.
+
+`Premise`: Later, Tom testified against John so as to avoid the electric chair. <br/>
+`Hypothesis`: Tom refused to turn on his friend, even though he was slated to be executed. <br/>
 `Label`: Contradiction
 
 
@@ -61,4 +60,5 @@ python train.py --batch_size 70 --eval_interval 500 --char_embed_size 8 --char_c
 tensorboard --logdir=./logs
 ```
 
-Currently we managed to obtain 87.27% accuracy on `test` set.
+### Results
+Currently we managed to obtain `87.27%` accuracy on `SNLI test` set, while the authors obtained `88.0%` accuracy on the same dataset.
