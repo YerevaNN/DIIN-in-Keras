@@ -94,6 +94,9 @@ class Gym(object):
                 train_batch_start += batch_size
                 if train_batch_start > len(train_inputs[0]):
                     train_batch_start = 0
+                    # Shuffle the data after the epoch ends
+                    if shuffle:
+                        random.shuffle(list(zip(train_data)))
 
     def evaluate(self, eval_step, batch_size=None):
         [test_loss, test_acc] = model.evaluate(self.test_data[:-1], self.test_data[-1], batch_size=batch_size)
