@@ -9,8 +9,7 @@ import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 from tqdm import tqdm
 
-from util import get_snli_file_path, ChunkDataManager
-from util import get_word2vec_file_path
+from util import get_snli_file_path, get_word2vec_file_path, ChunkDataManager
 
 
 def pad(x, maxlen):
@@ -44,6 +43,36 @@ class BasePreprocessor(object):
             text = '[' + ','.join(lines) + ']'
             return json.loads(text)
 
+    @staticmethod
+    def load_word_vectors(file_path, separator=' ', normalize=True, max_words=None):
+        """
+        :return: words[], np.array(vectors)
+        """
+        seen_words = set()
+        words = []
+        vectors = []
+        print('Loading', file_path, flush=True)
+        with io.open(file_path, mode='r', encoding='utf-8') as f:
+            for line in tqdm(f):
+                values = line.strip(' \n').split(separator)
+                word = values[0]
+                if len(values) < 10 or word in seen_words:
+                    print('Invalid word:', word)
+                    continue
+
+                seen_words.add(word)
+                vec = np.asarray(values[1:], dtype='float32')
+                if normalize:
+                    vec /= np.linalg.norm(vec, ord=2)
+
+                words.append(word)
+                vectors.append(vec)
+                if max_words and len(words) >= max_words:
+                    break
+
+        vectors = np.array(vectors, dtype='float32')
+        return words, vectors
+
     def get_words_with_part_of_speech(self, sentence):
         """
         :return: words, parts_of_speech
@@ -75,7 +104,19 @@ class BasePreprocessor(object):
         self.unique_words           = set(self.all_words)
         self.unique_parts_of_speech = set(self.all_parts_of_speech)
 
-    def init_word_to_vecs(self, vectors_file_path, needed_words, normalize=False):
+    @staticmethod
+    def get_not_present_word_vectors(not_present_words, word_vector_size, normalize):
+        res_words = []
+        res_vectors = []
+        for word in not_present_words:
+            vec = np.random.uniform(size=word_vector_size)
+            if normalize:
+                vec /= np.linalg.norm(vec, ord=2)
+            res_words.append(word)
+            res_vectors.append(vec)
+        return res_words, res_vectors
+
+    def init_word_to_vectors(self, vectors_file_path, needed_words, normalize=False):
         """
         Initialize:
             {word -> vec} mapping
@@ -86,65 +127,47 @@ class BasePreprocessor(object):
         :param normalize: normalize word vectors
         """
         needed_words = set(needed_words)
-        self.word_to_vec = {}
-        self.word_to_id = {}
-        self.vectors = []
+        words, self.vectors = self.load_word_vectors(vectors_file_path, normalize=normalize)
+        word_vector_size = self.vectors.shape[-1]
+        self.vectors = list(self.vectors)
 
-        with io.open(vectors_file_path, mode='r', encoding='utf-8') as f:
-            for line in tqdm(f):
-                values = line.split(' ')
-                word = values[0]
-
-                if word in needed_words:
-                    coefs = np.asarray(values[1:], dtype='float32')
-                    self.word_to_vec[word] = coefs
-
-        word_vector_size = len(self.word_to_vec['hello'])
-        present_words = set(self.word_to_vec.keys())
+        present_words = needed_words.intersection(words)
         not_present_words = needed_words - present_words
         print('#Present words:', len(present_words), '\t#Not present words', len(not_present_words))
-        print('Inserting not present words to the list as uniform-random vectors')
 
-        for word in not_present_words:
-            self.word_to_vec[word] = np.random.uniform(size=word_vector_size)
+        not_present_words, not_present_vectors = self.get_not_present_word_vectors(not_present_words=not_present_words,
+                                                                                   word_vector_size=word_vector_size,
+                                                                                   normalize=normalize)
+        words += not_present_words
+        self.vectors += not_present_vectors
 
-        if normalize:
-            for word, coefs in self.word_to_vec.items():
-                self.word_to_vec[word] = coefs / np.linalg.norm(coefs, ord=2)
-
-        for i, (word, vec) in enumerate(self.word_to_vec.items()):
-            self.word_to_id[word] = i
-            self.vectors.append(vec)
-
+        print('Initializing word mappings...')
+        self.word_to_vec = {word: vec for word, vec in zip(words, self.vectors)}
+        self.word_to_id  = {word: i   for i, word   in enumerate(words)}
         self.vectors = np.array(self.vectors)
+
+        assert len(self.word_to_vec) == len(self.word_to_id) == len(self.vectors)
+        print('%d words in total are now initialized!', len(self.word_to_vec))
 
     def init_chars(self, words):
         """
         Init char -> id mapping
         """
         chars = set()
-        self.char_to_id = {}
         for word in words:
             chars = chars.union(set(word))
 
-        for i, c in enumerate(chars):
-            self.char_to_id[c] = i + 1
-            print(c, end=' ')
-        print('\n')
+        self.char_to_id = {char: i for i, char in enumerate(chars)}
+        print('Chars:', chars)
 
     def init_parts_of_speech(self, parts_of_speech):
-        """
-        :param parts_of_speech:
-        :return:
-        """
-        self.part_of_speech_to_id = {}
-        for i, part in enumerate(parts_of_speech):
-            self.part_of_speech_to_id[part] = i + 1
-            print(part, end=' ')
-        print('\n')
+        self.part_of_speech_to_id = {part: i for i, part in enumerate(parts_of_speech)}
+        print('Parts of speech:', parts_of_speech)
 
-    def init_mappings(self):
-        snli_preprocessor.init_word_to_vecs(vectors_file_path=get_word2vec_file_path(), needed_words=self.unique_words)
+    def init_mappings(self, normalize_word_vectors=False):
+        snli_preprocessor.init_word_to_vectors(vectors_file_path=get_word2vec_file_path(),
+                                               needed_words=self.unique_words,
+                                               normalize=normalize_word_vectors)
         snli_preprocessor.init_chars(words=self.unique_words)
         snli_preprocessor.init_parts_of_speech(parts_of_speech=self.unique_parts_of_speech)
 
@@ -160,11 +183,9 @@ class BasePreprocessor(object):
     def label_to_one_hot(self, label):
         label_set = self.get_labels()
         res = np.zeros(shape=(len(label_set)), dtype=np.bool)
-        for i, l in enumerate(label_set):
-            if label == l:
-                res[i] = 1
-                return res
-        raise ValueError('Illegal label provided')
+        i = label_set.index(label)
+        res[i] = 1
+        return res
 
     def parse_one(self, premise, hypothesis, max_words_p, max_words_h, chars_per_word):
         """
