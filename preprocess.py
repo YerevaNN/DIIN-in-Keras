@@ -116,7 +116,7 @@ class BasePreprocessor(object):
             res_vectors.append(vec)
         return res_words, res_vectors
 
-    def init_word_to_vectors(self, vectors_file_path, needed_words, normalize=False):
+    def init_word_to_vectors(self, vectors_file_path, needed_words, normalize=False, max_loaded_word_vectors=None):
         """
         Initialize:
             {word -> vec} mapping
@@ -127,7 +127,9 @@ class BasePreprocessor(object):
         :param normalize: normalize word vectors
         """
         needed_words = set(needed_words)
-        words, self.vectors = self.load_word_vectors(vectors_file_path, normalize=normalize)
+        words, self.vectors = self.load_word_vectors(file_path=vectors_file_path,
+                                                     normalize=normalize,
+                                                     max_words=max_loaded_word_vectors)
         word_vector_size = self.vectors.shape[-1]
         self.vectors = list(self.vectors)
 
@@ -268,7 +270,7 @@ class BasePreprocessor(object):
 
         res[0] = pad_sequences(res[0], maxlen=max_words_p, padding='post', truncating='post', value=0.)  # input_word_p
         res[1] = pad_sequences(res[1], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # input_word_h
-        res = (np.array(item) for item in res)
+        res = [np.array(item) for item in res]
         return res
 
 
@@ -294,7 +296,8 @@ class SNLIPreprocessor(BasePreprocessor):
         return 'entailment', 'contradiction', 'neutral'
 
 
-def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths, word_vector_save_path, normalize_word_vectors,
+def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths,
+               word_vector_save_path, normalize_word_vectors, max_loaded_word_vectors=None,
                include_word_vectors=True, include_chars=True,
                include_syntactical_features=True, include_exact_match=True):
 
@@ -305,7 +308,8 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths, word_ve
     # Init mappings of the preprocessor
     preprocessor.init_word_to_vectors(vectors_file_path=get_word2vec_file_path(),
                                       needed_words=preprocessor.unique_words,
-                                      normalize=normalize_word_vectors)
+                                      normalize=normalize_word_vectors,
+                                      max_loaded_word_vectors=max_loaded_word_vectors)
     preprocessor.init_chars(words=preprocessor.unique_words)
     preprocessor.init_parts_of_speech(parts_of_speech=preprocessor.unique_parts_of_speech)
 
@@ -319,10 +323,10 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths, word_ve
 
         # Determine which part of data we need to dump
         save_data = []
-        if include_word_vectors:            save_data += [data[0], data[1]]
-        if include_chars:                   save_data += [data[2], data[3]]
-        if include_syntactical_features:    save_data += [data[4], data[5]]
-        if include_exact_match:             save_data += [data[6], data[7]]
+        if include_word_vectors:            save_data += data[0:2]
+        if include_chars:                   save_data += data[2:4]
+        if include_syntactical_features:    save_data += data[4:6]
+        if include_exact_match:             save_data += data[6:8]
 
         data_saver = ChunkDataManager(save_data_path=os.path.join(save_dir, dataset))
         data_saver.save(save_data)
@@ -333,6 +337,7 @@ if __name__ == '__main__':
     parser.add_argument('--p',              default=32,         help='Maximum words in premise',            type=int)
     parser.add_argument('--h',              default=32,         help='Maximum words in hypothesis',         type=int)
     parser.add_argument('--chars_per_word', default=16,         help='Number of characters in one word',    type=int)
+    parser.add_argument('--max_word_vecs',  default=None,       help='Maximum number of word vectors',      type=int)
     parser.add_argument('--save_dir',       default='data/',    help='Save directory of data',              type=str)
     parser.add_argument('--dataset',        default='snli',     help='Which preprocessor to use',           type=str)
     parser.add_argument('--word_vec_path',  default='data/word-vectors.npy', help='Save path word vectors', type=str)
@@ -356,6 +361,7 @@ if __name__ == '__main__':
                    data_paths=[('train', train_path), ('test', test_path), ('dev', dev_path)],
                    normalize_word_vectors=args.normalize_word_vectors,
                    word_vector_save_path=args.word_vec_path,
+                   max_loaded_word_vectors=args.max_word_vecs,
                    include_word_vectors=not args.omit_word_vectors,
                    include_chars=not args.omit_chars,
                    include_syntactical_features=not args.omit_syntactical_features,
