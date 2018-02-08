@@ -23,13 +23,10 @@ def pad(x, maxlen):
 class BasePreprocessor(object):
 
     def __init__(self):
-        self.word_to_vec = {}
         self.word_to_id = {}
         self.char_to_id = {}
         self.vectors = []
         self.part_of_speech_to_id = {}
-        self.all_words = []
-        self.all_parts_of_speech = []
         self.unique_words = set()
         self.unique_parts_of_speech = set()
 
@@ -54,7 +51,7 @@ class BasePreprocessor(object):
         print('Loading', file_path)
         with io.open(file_path, mode='r', encoding='utf-8') as f:
             for line in tqdm(f):
-                values = line.strip(' \n').split(separator)
+                values = line.replace(' \n', '').split(separator)
                 word = values[0]
                 if len(values) < 10 or word in seen_words:
                     print('Invalid word:', word)
@@ -91,6 +88,8 @@ class BasePreprocessor(object):
         :param file_paths: paths to files where the data is stored
         :return: words, parts_of_speech
         """
+        all_words = []
+        all_parts_of_speech = []
         for file_path in file_paths:
             data = self.load_data(file_path=file_path)
 
@@ -98,11 +97,11 @@ class BasePreprocessor(object):
                 premise, hypothesis = self.get_sentences(sample)
                 premise_words,    premise_speech    = self.get_words_with_part_of_speech(premise)
                 hypothesis_words, hypothesis_speech = self.get_words_with_part_of_speech(hypothesis)
-                self.all_words           += premise_words  + hypothesis_words
-                self.all_parts_of_speech += premise_speech + hypothesis_speech
+                all_words           += premise_words  + hypothesis_words
+                all_parts_of_speech += premise_speech + hypothesis_speech
 
-        self.unique_words           = set(self.all_words)
-        self.unique_parts_of_speech = set(self.all_parts_of_speech)
+        self.unique_words           = set(all_words)
+        self.unique_parts_of_speech = set(all_parts_of_speech)
 
     @staticmethod
     def get_not_present_word_vectors(not_present_words, word_vector_size, normalize):
@@ -122,6 +121,7 @@ class BasePreprocessor(object):
             {word -> vec} mapping
             {word -> id}  mapping
             [vectors] array
+        :param max_loaded_word_vectors: maximum number of words to load from word-vec file
         :param vectors_file_path: file where word-vectors are stored (Glove .txt file)
         :param needed_words: words for which to keep word-vectors
         :param normalize: normalize word vectors
@@ -145,12 +145,11 @@ class BasePreprocessor(object):
         self.vectors = list(self.vectors) + not_present_vectors
 
         print('Initializing word mappings...')
-        self.word_to_vec = {word: vec for word, vec in zip(words, self.vectors)}
         self.word_to_id  = {word: i   for i, word   in enumerate(words)}
         self.vectors = np.array(self.vectors)
 
-        assert len(self.word_to_vec) == len(self.word_to_id) == len(self.vectors)
-        print(len(self.word_to_vec), 'words in total are now initialized!')
+        assert len(self.word_to_id) == len(self.vectors)
+        print(len(self.word_to_id), 'words in total are now initialized!')
 
     def init_chars(self, words):
         """
