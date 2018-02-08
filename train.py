@@ -136,8 +136,8 @@ if __name__ == '__main__':
     dev_data   = ChunkDataManager(load_data_path=os.path.join(args.load_dir, 'dev')).load()
 
     ''' Getting dimensions of the input '''
-    chars_per_word = train_data[3].shape[-1]
-    syntactical_feature_size = train_data[5].shape[-1]
+    chars_per_word = train_data[3].shape[-1] if not args.omit_chars else 0
+    syntactical_feature_size = train_data[5].shape[-1] if not args.omit_syntactical_features else 0
 
     ''' Prepare the model and optimizers '''
     adam = L2Optimizer(Adam())

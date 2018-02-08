@@ -324,15 +324,13 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths,
                                   chars_per_word=chars_per_word)
 
         # Determine which part of data we need to dump
-        save_data = []
-        if include_word_vectors:            save_data += data[0:2]  # Word vectors
-        if include_chars:                   save_data += data[2:4]  # Character features
-        if include_syntactical_features:    save_data += data[4:6]  # Syntactical POS tags
-        if include_exact_match:             save_data += data[6:8]  # Exact match feature
-        save_data.append(data[8])                                   # Label
+        if not include_word_vectors:            del data[0:2]  # Word vectors
+        if not include_chars:                   del data[2:4]  # Character features
+        if not include_syntactical_features:    del data[4:6]  # Syntactical POS tags
+        if not include_exact_match:             del data[6:8]  # Exact match feature
 
         data_saver = ChunkDataManager(save_data_path=os.path.join(save_dir, dataset))
-        data_saver.save(save_data)
+        data_saver.save(data)
 
 
 if __name__ == '__main__':
