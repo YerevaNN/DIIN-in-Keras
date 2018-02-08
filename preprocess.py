@@ -17,7 +17,7 @@ def pad(x, maxlen):
         pad_width = ((0, maxlen - len(x)), (0, 0))
         return np.pad(x, pad_width=pad_width, mode='constant', constant_values=0)
     res = x[:maxlen]
-    return np.array(res)
+    return np.array(res, copy=False)
 
 
 class BasePreprocessor(object):
@@ -48,6 +48,7 @@ class BasePreprocessor(object):
         seen_words = set()
         words = []
         vectors = []
+        vector_size = None
         print('Loading', file_path)
         with io.open(file_path, mode='r', encoding='utf-8') as f:
             for line in tqdm(f):
@@ -62,12 +63,18 @@ class BasePreprocessor(object):
                 if normalize:
                     vec /= np.linalg.norm(vec, ord=2)
 
+                if vector_size is None:
+                    vector_size = len(vec)
+                elif len(vec) != vector_size:
+                    print('Skipping', word)
+                    continue
+
                 words.append(word)
                 vectors.append(vec)
                 if max_words and len(words) >= max_words:
                     break
 
-        vectors = np.array(vectors, dtype='float32')
+        vectors = np.array(vectors, dtype='float32', copy=False)
         return words, vectors
 
     def get_words_with_part_of_speech(self, sentence):
@@ -146,7 +153,7 @@ class BasePreprocessor(object):
 
         print('Initializing word mappings...')
         self.word_to_id  = {word: i   for i, word   in enumerate(words)}
-        self.vectors = np.array(self.vectors)
+        self.vectors = np.array(self.vectors, copy=False)
 
         assert len(self.word_to_id) == len(self.vectors)
         print(len(self.word_to_id), 'words in total are now initialized!')
@@ -195,7 +202,7 @@ class BasePreprocessor(object):
         chars = [[self.char_to_id[c] for c in word] for word in words]
         chars = pad_sequences(chars, maxlen=chars_per_word, padding='post', truncating='post')
         
-        return (words, parts_of_speech, np.array(word_ids),
+        return (words, parts_of_speech, np.array(word_ids, copy=False),
                 syntactical_features, pad(syntactical_one_hot, max_words),
                 pad(chars, max_words))
 
@@ -225,7 +232,7 @@ class BasePreprocessor(object):
             target_words = set(target_words)
 
             res = [(word in target_words) for word in source_words]
-            return np.array(res)
+            return np.array(res, copy=False)
 
         premise_exact_match    = calculate_exact_match(premise_words, hypothesis_words)
         hypothesis_exact_match = calculate_exact_match(hypothesis_words, premise_words)
@@ -263,8 +270,7 @@ class BasePreprocessor(object):
                                            chars_per_word=chars_per_word)
             label = self.label_to_one_hot(label=label)
 
-            sample_result = list(sample_inputs)
-            sample_result.append(label)
+            sample_result = list(sample_inputs) + [label]
             for res_item, parsed_item in zip(res, sample_result):
                 res_item.append(parsed_item)
 
@@ -272,7 +278,7 @@ class BasePreprocessor(object):
         res[1] = pad_sequences(res[1], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # input_word_h
         res[6] = pad_sequences(res[6], maxlen=max_words_p, padding='post', truncating='post', value=0.)  # exact_match_p
         res[7] = pad_sequences(res[7], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # exact_match_h
-        res = [np.array(item) for item in res]
+        res = [np.array(item, copy=False) for item in res]
         return res
 
 

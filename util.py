@@ -61,7 +61,7 @@ class ChunkDataManager(object):
     def save(self, data):
         if not os.path.exists(self.save_data_path):
             os.mkdir(self.save_data_path)
-        print('Saving data of shapes:', [item.shape for item in data], flush=True)
+        print('Saving data of shapes:', [item.shape for item in data])
         for i, item in tqdm(enumerate(data)):
             np.save(self.save_data_path + '/' + str(i) + '.npy', item)
 
