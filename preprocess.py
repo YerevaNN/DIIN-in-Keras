@@ -330,10 +330,10 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths,
                                   chars_per_word=chars_per_word)
 
         # Determine which part of data we need to dump
-        if not include_word_vectors:            del data[0:2]  # Word vectors
-        if not include_chars:                   del data[2:4]  # Character features
-        if not include_syntactical_features:    del data[4:6]  # Syntactical POS tags
         if not include_exact_match:             del data[6:8]  # Exact match feature
+        if not include_syntactical_features:    del data[4:6]  # Syntactical POS tags
+        if not include_chars:                   del data[2:4]  # Character features
+        if not include_word_vectors:            del data[0:2]  # Word vectors
 
         data_saver = ChunkDataManager(save_data_path=os.path.join(save_dir, dataset))
         data_saver.save(data)
