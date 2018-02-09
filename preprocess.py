@@ -278,7 +278,6 @@ class BasePreprocessor(object):
         res[1] = pad_sequences(res[1], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # input_word_h
         res[6] = pad_sequences(res[6], maxlen=max_words_p, padding='post', truncating='post', value=0.)  # exact_match_p
         res[7] = pad_sequences(res[7], maxlen=max_words_h, padding='post', truncating='post', value=0.)  # exact_match_h
-        res = [np.array(item, copy=False) for item in res]
         return res
 
 
@@ -336,7 +335,7 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths,
         if not include_word_vectors:            del data[0:2]  # Word vectors
 
         data_saver = ChunkDataManager(save_data_path=os.path.join(save_dir, dataset))
-        data_saver.save(data)
+        data_saver.save([np.array(item) for item in data])
 
 
 if __name__ == '__main__':
