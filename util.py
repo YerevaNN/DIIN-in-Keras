@@ -26,7 +26,10 @@ def get_snli_file_path():
     return snli_dir
 
 
-def get_word2vec_file_path():
+def get_word2vec_file_path(file_path):
+    if file_path is not None and path.exists(file_path):
+        return file_path
+
     download_url = 'http://nlp.stanford.edu/data/glove.840B.300d.zip'
     cache_dir = path.join(path.abspath(path.dirname(__file__)), 'data')
     glove_file_path = cache_dir + '/glove.840B.300d.txt'

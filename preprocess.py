@@ -305,7 +305,7 @@ class SNLIPreprocessor(BasePreprocessor):
 
 
 def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths,
-               word_vector_save_path, normalize_word_vectors, max_loaded_word_vectors=None,
+               word_vector_save_path, normalize_word_vectors, max_loaded_word_vectors=None, word_vectors_file_path=None,
                include_word_vectors=True, include_chars=True,
                include_syntactical_features=True, include_exact_match=True):
 
@@ -314,7 +314,7 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths,
     print('Found', len(preprocessor.unique_parts_of_speech), 'unique parts of speech')
 
     # Init mappings of the preprocessor
-    preprocessor.init_word_to_vectors(vectors_file_path=get_word2vec_file_path(),
+    preprocessor.init_word_to_vectors(vectors_file_path=get_word2vec_file_path(word_vectors_file_path),
                                       needed_words=preprocessor.unique_words,
                                       normalize=normalize_word_vectors,
                                       max_loaded_word_vectors=max_loaded_word_vectors)
@@ -347,7 +347,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_word_vecs',  default=None,       help='Maximum number of word vectors',      type=int)
     parser.add_argument('--save_dir',       default='data/',    help='Save directory of data',              type=str)
     parser.add_argument('--dataset',        default='snli',     help='Which preprocessor to use',           type=str)
-    parser.add_argument('--word_vec_path',  default='data/word-vectors.npy', help='Save path word vectors', type=str)
+    parser.add_argument('--word_vec_load_path', default=None,   help='Path to load word vectors',           type=str)
+    parser.add_argument('--word_vec_save_path', default='data/word-vectors.npy', help='Path to save vectors', type=str)
     parser.add_argument('--normalize_word_vectors',      action='store_true')
     parser.add_argument('--omit_word_vectors',           action='store_true')
     parser.add_argument('--omit_chars',                  action='store_true')
