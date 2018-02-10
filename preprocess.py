@@ -304,7 +304,7 @@ class SNLIPreprocessor(BasePreprocessor):
 
 
 def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths,
-               word_vector_save_path, normalize_word_vectors, max_loaded_word_vectors=None, word_vectors_file_path=None,
+               word_vector_save_path, normalize_word_vectors, max_loaded_word_vectors=None, word_vectors_load_path=None,
                include_word_vectors=True, include_chars=True,
                include_syntactical_features=True, include_exact_match=True):
 
@@ -313,7 +313,7 @@ def preprocess(p, h, chars_per_word, preprocessor, save_dir, data_paths,
     print('Found', len(preprocessor.unique_parts_of_speech), 'unique parts of speech')
 
     # Init mappings of the preprocessor
-    preprocessor.init_word_to_vectors(vectors_file_path=get_word2vec_file_path(word_vectors_file_path),
+    preprocessor.init_word_to_vectors(vectors_file_path=get_word2vec_file_path(word_vectors_load_path),
                                       needed_words=preprocessor.unique_words,
                                       normalize=normalize_word_vectors,
                                       max_loaded_word_vectors=max_loaded_word_vectors)
@@ -366,8 +366,9 @@ if __name__ == '__main__':
                    preprocessor=snli_preprocessor,
                    save_dir=args.save_dir,
                    data_paths=[('train', train_path), ('test', test_path), ('dev', dev_path)],
+                   word_vectors_load_path=args.word_vec_load_path,
                    normalize_word_vectors=args.normalize_word_vectors,
-                   word_vector_save_path=args.word_vec_path,
+                   word_vector_save_path=args.word_vec_save_path,
                    max_loaded_word_vectors=args.max_word_vecs,
                    include_word_vectors=not args.omit_word_vectors,
                    include_chars=not args.omit_chars,
