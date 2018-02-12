@@ -12,56 +12,49 @@ from layers.interaction import Interaction
 
 class DIIN(Model):
     def __init__(self,
-                 p=None,
-                 h=None,
-                 word_embedding_weights=None,
-                 char_embedding_size=30,
-                 chars_per_word=14,
-                 syntactical_feature_size=50,
-                 dropout_decay_interval=10000,
-                 dropout_decay_rate=0.977,
-                 dropout_initial_keep_rate=1.,
-                 char_conv_filters=77,
-                 char_conv_kernel_size=5,
-                 FSDR=0.3,
-                 TSDR=0.5,
-                 GR=20,
-                 n=8,
-                 nb_dense_blocks=3,
-                 nb_labels=3,
-                 train_word_embeddings=True,
-                 include_word_vectors=True,
-                 include_chars=True,
-                 include_syntactical_features=True,
+                 p=None, h=None,
+                 include_word_vectors=True, word_embedding_weights=None, train_word_embeddings=True,
+                 include_chars=True, chars_per_word=16, char_embedding_size=8,
+                 char_conv_filters=100, char_conv_kernel_size=5,
+                 include_syntactical_features=True, syntactical_feature_size=50,
                  include_exact_match=True,
+                 dropout_initial_keep_rate=1., dropout_decay_rate=0.977, dropout_decay_interval=10000,
+                 first_scale_down_ratio=0.3, transition_scale_down_ratio=0.5, growth_rate=20,
+                 layers_per_dense_block=8, nb_dense_blocks=3, nb_labels=3,
                  inputs=None, outputs=None, name='DIIN'):
         """
         :ref https://openreview.net/forum?id=r1dHXnH6-&noteId=r1dHXnH6-
 
         :param p: sequence length of premise
         :param h: sequence length of hypothesis
+        :param include_word_vectors: whether or not to include word vectors in the model
         :param word_embedding_weights: matrix of weights for word embeddings (GloVe pre-trained vectors)
+        :param train_word_embeddings: whether or not to modify word embeddings while training
+        :param include_chars: whether or not to include character embeddings in the model
+        :param chars_per_word: how many chars are there per one word (a fixed number)
         :param char_embedding_size: input size of the character-embedding layer
-        :param chars_per_word: length of the padding size for each word
+        :param char_conv_filters: number of conv-filters applied on character embedding
+        :param char_conv_kernel_size: size of the kernel applied on character embeddings
+        :param include_syntactical_features: whether or not to include syntactical features (POS tags) in the model
         :param syntactical_feature_size: size of the syntactical feature vector for each word
+        :param include_exact_match: whether or not to include exact match features in the model
         :param dropout_initial_keep_rate: initial state of dropout
         :param dropout_decay_rate: how much to change dropout at each interval
         :param dropout_decay_interval: how much time to wait for the next update
-        :param char_conv_filters: number of conv-filters applied on character embedding
-        :param char_conv_kernel_size: size of the kernel applied on character embeddings
-        :param FSDR: first scale down ratio in densenet
-        :param TSDR: transition scale down ratio in densenet
-        :param GR: growing rate in densenet
-        :param n: number of layers in one dense-block
+        :param first_scale_down_ratio: first scale down ratio in densenet
+        :param transition_scale_down_ratio: transition scale down ratio in densenet
+        :param growth_rate: growing rate in densenet
+        :param layers_per_dense_block: number of layers in one dense-block
         :param nb_dense_blocks: number of dense blocks in densenet
-        :param nb_labels: number of labels
+        :param nb_labels: number of labels (3 labels by default: entailment, contradiction, neutral)
         """
 
         if inputs or outputs:
             super(DIIN, self).__init__(inputs=inputs, outputs=outputs, name=name)
             return
 
-        assert word_embedding_weights is not None
+        if include_word_vectors:
+            assert word_embedding_weights is not None
         inputs = []
         premise_embeddings = []
         hypothesis_embeddings = []
@@ -146,13 +139,16 @@ class DIIN(Model):
         interaction = Interaction(name='Interaction')([premise_encoding, hypothesis_encoding])
 
         '''Feature Extraction layer'''
-        feature_extractor_input = Conv2D(filters=int(d * FSDR), kernel_size=1, activation=None, name='FSD')(interaction)
+        feature_extractor_input = Conv2D(filters=int(d * first_scale_down_ratio),
+                                         kernel_size=1,
+                                         activation=None,
+                                         name='FirstScaleDown')(interaction)
         feature_extractor = DenseNet(include_top=False,
                                      input_tensor=Input(shape=K.int_shape(feature_extractor_input)[1:]),
                                      nb_dense_block=nb_dense_blocks,
-                                     nb_layers_per_block=n,
-                                     compression=TSDR,
-                                     growth_rate=GR)(feature_extractor_input)
+                                     nb_layers_per_block=layers_per_dense_block,
+                                     compression=transition_scale_down_ratio,
+                                     growth_rate=growth_rate)(feature_extractor_input)
 
         '''Output layer'''
         features = DecayingDropout(initial_keep_rate=dropout_initial_keep_rate,

@@ -118,6 +118,16 @@ if __name__ == '__main__':
     parser.add_argument('--eval_interval',      default=500,    help='Evaluation Interval (#batches)',      type=int)
     parser.add_argument('--char_embed_size',    default=8,      help='Size of character embedding',         type=int)
     parser.add_argument('--char_conv_filters',  default=100,    help='Number of character conv filters',    type=int)
+    parser.add_argument('--char_conv_kernel',   default=5,      help='Size of char convolution kernel',     type=int)
+    parser.add_argument('--dropout_initial_keep_rate',   default=1.,      help='Initial keep rate of decaying dropout',  type=float)
+    parser.add_argument('--dropout_decay_rate',          default=0.977,   help='Decay rate of dropout',                  type=float)
+    parser.add_argument('--dropout_decay_interval',      default=10000,   help='Dropout decay interval',                 type=int)
+    parser.add_argument('--first_scale_down_ratio',      default=0.3,     help='First scale down ratio (DenseNet)',      type=float)
+    parser.add_argument('--transition_scale_down_ratio', default=0.5,     help='Transition scale down ratio (DenseNet)', type=float)
+    parser.add_argument('--growth_rate',                 default=20,      help='Growth rate (DenseNet)',                 type=int)
+    parser.add_argument('--layers_per_dense_block',      default=8,       help='Layers in one Dense block (DenseNet)',   type=int)
+    parser.add_argument('--dense_blocks',                default=3,       help='Number of Dense blocks (DenseNet)',      type=int)
+    parser.add_argument('--labels',                      default=3,       help='Number of output labels',   type=int)
     parser.add_argument('--load_dir',           default='data',             help='Directory of the data',   type=str)
     parser.add_argument('--models_dir',         default='models/',          help='Where to save models',    type=str)
     parser.add_argument('--logdir',             default='logs',             help='Tensorboard logs dir',    type=str)
@@ -145,16 +155,26 @@ if __name__ == '__main__':
     sgd = L2Optimizer(SGD(lr=3e-3))
     model = DIIN(p=train_data[0].shape[-1],  # or None
                  h=train_data[1].shape[-1],  # or None
+                 include_word_vectors=not args.omit_word_vectors,
                  word_embedding_weights=word_embedding_weights,
+                 train_word_embeddings=args.train_word_embeddings,
+                 include_chars=not args.omit_chars,
                  chars_per_word=chars_per_word,
-                 syntactical_feature_size=syntactical_feature_size,
                  char_embedding_size=args.char_embed_size,
                  char_conv_filters=args.char_conv_filters,
-                 train_word_embeddings=args.train_word_embeddings,
-                 include_word_vectors=not args.omit_word_vectors,
-                 include_chars=not args.omit_chars,
+                 char_conv_kernel_size=args.char_conv_kernel,
                  include_syntactical_features=not args.omit_syntactical_features,
-                 include_exact_match=not args.omit_exact_match)
+                 syntactical_feature_size=syntactical_feature_size,
+                 include_exact_match=not args.omit_exact_match,
+                 dropout_initial_keep_rate=args.dropout_initial_keep_rate,
+                 dropout_decay_rate=args.dropout_decay_rate,
+                 dropout_decay_interval=args.dropout_decay_interval,
+                 first_scale_down_ratio=args.first_scale_down_ratio,
+                 transition_scale_down_ratio=args.transition_scale_down_ratio,
+                 growth_rate=args.growth_rate,
+                 layers_per_dense_block=args.layers_per_dense_block,
+                 nb_dense_blocks=args.dense_blocks,
+                 nb_labels=args.labels)
 
     ''' Initialize Gym for training '''
     gym = Gym(model=model,
