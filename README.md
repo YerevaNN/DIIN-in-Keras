@@ -61,4 +61,4 @@ tensorboard --logdir=./logs
 ```
 
 ### Results
-Currently we managed to obtain `87.27%` accuracy on `SNLI test` set, while the authors obtained `88.0%` accuracy on the same dataset.
+Currently we managed to obtain `87.34%` accuracy on `SNLI test` set, while the authors obtained `88.0%` accuracy on the same dataset.

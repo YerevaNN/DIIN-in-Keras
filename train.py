@@ -6,7 +6,7 @@ import random
 
 import numpy as np
 from keras.callbacks import TensorBoard
-from keras.optimizers import Adadelta, SGD, Adam
+from keras.optimizers import SGD, Adam, Adagrad
 from tqdm import tqdm
 
 from model import DIIN
@@ -114,23 +114,26 @@ class Gym(object):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size',         default=70,     help='Batch size',                          type=int)
-    parser.add_argument('--eval_interval',      default=500,    help='Evaluation Interval (#batches)',      type=int)
-    parser.add_argument('--char_embed_size',    default=8,      help='Size of character embedding',         type=int)
-    parser.add_argument('--char_conv_filters',  default=100,    help='Number of character conv filters',    type=int)
-    parser.add_argument('--char_conv_kernel',   default=5,      help='Size of char convolution kernel',     type=int)
-    parser.add_argument('--dropout_initial_keep_rate',   default=1.,      help='Initial keep rate of decaying dropout',  type=float)
-    parser.add_argument('--dropout_decay_rate',          default=0.977,   help='Decay rate of dropout',                  type=float)
-    parser.add_argument('--dropout_decay_interval',      default=10000,   help='Dropout decay interval',                 type=int)
-    parser.add_argument('--first_scale_down_ratio',      default=0.3,     help='First scale down ratio (DenseNet)',      type=float)
-    parser.add_argument('--transition_scale_down_ratio', default=0.5,     help='Transition scale down ratio (DenseNet)', type=float)
-    parser.add_argument('--growth_rate',                 default=20,      help='Growth rate (DenseNet)',                 type=int)
-    parser.add_argument('--layers_per_dense_block',      default=8,       help='Layers in one Dense block (DenseNet)',   type=int)
-    parser.add_argument('--dense_blocks',                default=3,       help='Number of Dense blocks (DenseNet)',      type=int)
-    parser.add_argument('--labels',                      default=3,       help='Number of output labels',   type=int)
-    parser.add_argument('--load_dir',           default='data',             help='Directory of the data',   type=str)
-    parser.add_argument('--models_dir',         default='models/',          help='Where to save models',    type=str)
-    parser.add_argument('--logdir',             default='logs',             help='Tensorboard logs dir',    type=str)
+    parser.add_argument('--batch_size',                  default=70,        help='Batch size',                              type=int)
+    parser.add_argument('--eval_interval',               default=500,       help='Evaluation Interval (#batches)',          type=int)
+    parser.add_argument('--char_embed_size',             default=8,         help='Size of character embedding',             type=int)
+    parser.add_argument('--char_conv_filters',           default=100,       help='Number of character conv filters',        type=int)
+    parser.add_argument('--char_conv_kernel',            default=5,         help='Size of char convolution kernel',         type=int)
+    parser.add_argument('--dropout_initial_keep_rate',   default=1.,        help='Initial keep rate of decaying dropout',   type=float)
+    parser.add_argument('--dropout_decay_rate',          default=0.977,     help='Decay rate of dropout',                   type=float)
+    parser.add_argument('--dropout_decay_interval',      default=10000,     help='Dropout decay interval',                  type=int)
+    parser.add_argument('--l2_full_step',                default=100000,    help='Number of steps for full L2 penalty',     type=float)
+    parser.add_argument('--l2_full_ratio',               default=9e-5,      help='L2 full penalty',                         type=float)
+    parser.add_argument('--l2_diference_penalty',        default=1e-3,      help='L2 penalty applied on weight difference', type=float)
+    parser.add_argument('--first_scale_down_ratio',      default=0.3,       help='First scale down ratio (DenseNet)',       type=float)
+    parser.add_argument('--transition_scale_down_ratio', default=0.5,       help='Transition scale down ratio (DenseNet)',  type=float)
+    parser.add_argument('--growth_rate',                 default=20,        help='Growth rate (DenseNet)',                  type=int)
+    parser.add_argument('--layers_per_dense_block',      default=8,         help='Layers in one Dense block (DenseNet)',    type=int)
+    parser.add_argument('--dense_blocks',                default=3,         help='Number of Dense blocks (DenseNet)',       type=int)
+    parser.add_argument('--labels',                      default=3,         help='Number of output labels',                 type=int)
+    parser.add_argument('--load_dir',                    default='data',    help='Directory of the data',   type=str)
+    parser.add_argument('--models_dir',                  default='models/', help='Where to save models',    type=str)
+    parser.add_argument('--logdir',                      default='logs',    help='Tensorboard logs dir',    type=str)
     parser.add_argument('--word_vec_path', default='data/word-vectors.npy', help='Save path word vectors',  type=str)
     parser.add_argument('--omit_word_vectors',           action='store_true')
     parser.add_argument('--omit_chars',                  action='store_true')
@@ -150,9 +153,10 @@ if __name__ == '__main__':
     syntactical_feature_size = train_data[5].shape[-1] if not args.omit_syntactical_features else 0
 
     ''' Prepare the model and optimizers '''
-    adam = L2Optimizer(Adam())
-    adadelta = L2Optimizer(Adadelta(lr=0.5, rho=0.95, epsilon=1e-8))
-    sgd = L2Optimizer(SGD(lr=3e-3))
+    adam = L2Optimizer(Adam(), args.l2_full_step, args.l2_full_ratio, args.l2_diference_penalty)
+    adagrad = L2Optimizer(Adagrad(), args.l2_full_step, args.l2_full_ratio, args.l2_diference_penalty)
+    sgd = L2Optimizer(SGD(lr=3e-3), args.l2_full_step, args.l2_full_ratio, args.l2_diference_penalty)
+
     model = DIIN(p=train_data[0].shape[-1],  # or None
                  h=train_data[1].shape[-1],  # or None
                  include_word_vectors=not args.omit_word_vectors,
@@ -179,7 +183,7 @@ if __name__ == '__main__':
     ''' Initialize Gym for training '''
     gym = Gym(model=model,
               train_data=train_data, test_data=test_data, dev_data=dev_data,
-              optimizers=[(adam, 3), (adadelta, 4), (sgd, 7)],
+              optimizers=[(adam, 3), (adagrad, 4), (sgd, 15)],
               logger=TensorBoard(log_dir=args.logdir),
               models_save_dir=args.models_dir)
 
