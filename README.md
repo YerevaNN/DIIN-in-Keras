@@ -4,6 +4,7 @@ This repository aims to reproduce the results obtained in
 [Natural Language Inference over Interaction Space](https://arxiv.org/abs/1709.04348) paper. <br/>
 We've chosen this paper as a project for 
 [reproducibility challenge](http://www.cs.mcgill.ca/~jpineau/ICLR2018-ReproducibilityChallenge.html) organized by ICLR. <br/>
+Our reproducibility report with more details about experiments can be found here: https://arxiv.org/abs/1802.03198 <br/>
 DIIN paper in OpenReview: https://openreview.net/forum?id=r1dHXnH6-&noteId=r1dHXnH6-
 
 
